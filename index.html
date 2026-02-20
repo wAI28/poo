@@ -27,7 +27,7 @@ const player = {
 let bullets = [];
 let lastShot = 0;
 
-// 조이스틱 정보
+// 조이스틱
 const joystick = {
   x: 0,
   y: 0,
@@ -39,19 +39,20 @@ const joystick = {
   vy:0
 };
 
-// 장애물 늘리기
-const obstacles = [];
-for(let i=0;i<100;i++){ // 100개로 늘림
-  obstacles.push({
-    x: Math.random()*canvas.width*5 - canvas.width*2, 
+// 풀 생성 (맵 느낌)
+const grass = [];
+for(let i=0;i<300;i++){ // 잔디 300개
+  grass.push({
+    x: Math.random()*canvas.width*5 - canvas.width*2,
     y: Math.random()*canvas.height*5 - canvas.height*2,
-    size: 50
+    size: 5 + Math.random()*5,
+    color: Math.random()>0.5 ? "#7cfc00" : "#adff2f"
   });
 }
 
 let mapOffset = {x:0, y:0};
 
-// 터치 이벤트 - 어디서든 조이스틱 활성
+// 터치 이벤트 - 어디서든 조이스틱
 canvas.addEventListener("touchstart", e => {
   const t = e.touches[0];
   joystick.active = true;
@@ -91,11 +92,10 @@ canvas.addEventListener("touchend", e => {
 
 // 게임 루프
 function update(){
-  // 배경 이동
   mapOffset.x -= joystick.vx;
   mapOffset.y -= joystick.vy;
 
-  // 총알 생성
+  // 샷건 총알 생성
   const now = Date.now();
   if(joystick.active && now - lastShot > 1000){
     const angle = Math.atan2(joystick.stickY - joystick.y, joystick.stickX - joystick.x);
@@ -109,7 +109,6 @@ function update(){
     lastShot = now;
   }
 
-  // 총알 이동
   bullets.forEach(b => {
     b.x += b.dx;
     b.y += b.dy;
@@ -119,19 +118,23 @@ function update(){
 }
 
 function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // 초록색 바닥
+  ctx.fillStyle = "#228B22"; 
+  ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  // 장애물 그리기
-  obstacles.forEach(o => {
-    ctx.fillStyle = "white";
-    ctx.fillRect(o.x + mapOffset.x, o.y + mapOffset.y, o.size, o.size);
+  // 잔디 그리기
+  grass.forEach(g => {
+    ctx.fillStyle = g.color;
+    ctx.beginPath();
+    ctx.arc(g.x + mapOffset.x, g.y + mapOffset.y, g.size/2, 0, Math.PI*2);
+    ctx.fill();
   });
 
-  // 플레이어 그리기
+  // 플레이어
   ctx.fillStyle = player.color;
   ctx.fillRect(player.x - player.size/2, player.y - player.size/2, player.size, player.size);
 
-  // 총알 그리기
+  // 총알
   bullets.forEach(b => {
     ctx.fillStyle = "orange";
     ctx.beginPath();
@@ -139,7 +142,7 @@ function draw(){
     ctx.fill();
   });
 
-  // 조이스틱 그리기 (터치 중일 때만)
+  // 조이스틱
   if(joystick.active){
     ctx.strokeStyle = "#888";
     ctx.lineWidth = 4;
