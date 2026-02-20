@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>탕탕특공대 샷건 잔상 수정 최종</title>
+<title>탕탕특공대 샷건 v.1</title>
 <style>
   body { margin:0; overflow:hidden; background:#222; }
   canvas { display:block; touch-action:none; }
@@ -15,6 +15,9 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
+
+// 버전
+const VERSION = "v.1";
 
 // 맵 크기
 const map = { width: canvas.width*5, height: canvas.height*5 };
@@ -119,15 +122,14 @@ function draw(){
   bullets.forEach(b=>{
     const trailLen = b.trail.length;
     b.trail.forEach((t,i)=>{
-      const ratio = (i+1)/trailLen; // 오래된 잔상 = 작은 값, 최신 잔상 = 큰 값
-      const scale = 0.2 + 0.6*ratio; // 총알보다 작게 시작
-      const alpha = 0.2 + 0.5*ratio; // 오래된 잔상 투명, 최신 잔상 진하게
+      const ratio = (i+1)/trailLen; 
+      const scale = 0.2 + 0.6*ratio; 
+      const alpha = 0.2 + 0.5*ratio; 
       ctx.fillStyle = `rgba(255,165,0,${alpha})`;
       ctx.beginPath();
       ctx.arc(t.x+mapOffset.x, t.y+mapOffset.y, (b.size/2)*scale,0,Math.PI*2);
       ctx.fill();
     });
-    // 총알 자체
     ctx.fillStyle="orange";
     ctx.beginPath();
     ctx.arc(b.x+mapOffset.x, b.y+mapOffset.y, b.size/2,0,Math.PI*2);
@@ -145,6 +147,13 @@ function draw(){
     ctx.arc(joystick.stickX, joystick.stickY,25,0,Math.PI*2);
     ctx.fill();
   }
+
+  // 화면 상단 중앙 버전 표시
+  ctx.fillStyle = "white";
+  ctx.font = "20px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText(VERSION, canvas.width/2, 30);
+  ctx.textAlign = "start";
 }
 
 function loop(){ update(); draw(); requestAnimationFrame(loop); }
