@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>탕탕특공대 샷건 v.7</title>
+<title>탕탕특공대 샷건 v.8</title>
 <style>
   body { margin:0; overflow:hidden; background:#222; }
   canvas { display:block; touch-action:none; }
@@ -16,7 +16,7 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-const VERSION = "v.7";
+const VERSION = "v.8";
 
 // 맵
 const map = { width: canvas.width*5, height: canvas.height*5 };
@@ -174,24 +174,34 @@ function update(){
   });
   bullets = bullets.filter(b=>b.x>0 && b.x<map.width && b.y>0 && b.y<map.height && !b.hit);
 
-  // 적 이동 + 넉백 관성
+  // 적 이동 + 넉백 관성 + 플레이어 충돌
   enemies.forEach(e=>{
     const dx = player.x - e.x;
     const dy = player.y - e.y;
     const dist = Math.hypot(dx, dy);
-    if(dist > 0){
-      e.x += e.vx + (dx/dist)*e.speed;
-      e.y += e.vy + (dy/dist)*e.speed;
-    }
+    
+    e.x += e.vx + (dx/dist)*e.speed;
+    e.y += e.vy + (dy/dist)*e.speed;
+
     // 감속
     const friction = 0.85;
     e.vx *= friction;
     e.vy *= friction;
 
+    // 맵 경계
     if(e.x - e.radius < 0) e.x = e.radius;
     if(e.x + e.radius > map.width) e.x = map.width - e.radius;
     if(e.y - e.radius < 0) e.y = e.radius;
     if(e.y + e.radius > map.height) e.y = map.height - e.radius;
+
+    // 플레이어와 충돌 처리
+    const minDist = e.radius + player.radius;
+    if(dist < minDist && dist>0){
+      const overlap = minDist - dist;
+      e.x -= (dx/dist) * overlap;
+      e.y -= (dy/dist) * overlap;
+    }
+
     if(e.flash>0) e.flash--;
   });
 
