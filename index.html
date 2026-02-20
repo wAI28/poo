@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>탕탕특공대 샷건 v.5</title>
+<title>탕탕특공대 샷건 v.6</title>
 <style>
   body { margin:0; overflow:hidden; background:#222; }
   canvas { display:block; touch-action:none; }
@@ -17,7 +17,7 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 // 버전
-const VERSION = "v.5";
+const VERSION = "v.6";
 
 // 맵
 const map = { width: canvas.width*5, height: canvas.height*5 };
@@ -58,13 +58,11 @@ canvas.addEventListener("touchstart", e => {
     const dx = t.clientX - joystick.x;
     const dy = t.clientY - joystick.y;
     if(Math.hypot(dx, dy)<=joystick.radius && joystick.touchId===null){ 
-      // 조이스틱 터치
       joystick.active = true;
       joystick.touchId = t.identifier;
       joystick.stickX = t.clientX;
       joystick.stickY = t.clientY;
     } else { 
-      // 조준 터치 → 샷건 발사
       shootAt(t.clientX, t.clientY);
     }
   }
@@ -167,8 +165,9 @@ function update(){
         e.hp -= 1;
         e.flash = 5;
         const angle = Math.atan2(e.y - player.y, e.x - player.x);
-        e.x += Math.cos(angle)*10;
-        e.y += Math.sin(angle)*10;
+        const knockback = 15;
+        e.x += Math.cos(angle)*knockback;
+        e.y += Math.sin(angle)*knockback;
         b.hit = true;
       }
     });
