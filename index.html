@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>탕탕특공대 샷건 v.3</title>
+<title>탕탕특공대 샷건 v.4</title>
 <style>
   body { margin:0; overflow:hidden; background:#222; }
   canvas { display:block; touch-action:none; }
@@ -17,7 +17,7 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 // 버전
-const VERSION = "v.3";
+const VERSION = "v.4";
 
 // 맵
 const map = { width: canvas.width*5, height: canvas.height*5 };
@@ -29,8 +29,16 @@ const player = { x: map.width/2, y: map.height/2, radius:20, color:"white", spee
 let bullets = [];
 let lastShot = 0;
 
-// 조이스틱
-const joystick = { x:0, y:0, stickX:0, stickY:0, radius:50, active:false, vx:0, vy:0 };
+// 조이스틱 고정 좌측 하단
+const joystick = { 
+  radius: 80,
+  x: 80 + 10, 
+  y: canvas.height - 80 - 10,
+  stickX: 0, stickY: 0,
+  active:false, vx:0, vy:0
+};
+joystick.stickX = joystick.x;
+joystick.stickY = joystick.y;
 
 // 풀 1200개
 const grass = [];
@@ -48,9 +56,13 @@ let lastSpawn = 0;
 // 터치 이벤트
 canvas.addEventListener("touchstart", e => {
   const t = e.touches[0];
-  joystick.active = true;
-  joystick.x = t.clientX; joystick.y = t.clientY;
-  joystick.stickX = t.clientX; joystick.stickY = t.clientY;
+  const dx = t.clientX - joystick.x;
+  const dy = t.clientY - joystick.y;
+  if(Math.hypot(dx,dy)<=joystick.radius){ // 조이스틱 터치
+    joystick.active = true;
+  } else { // 나머지 터치 → 샷건 발사
+    shootAt(t.clientX, t.clientY);
+  }
 });
 canvas.addEventListener("touchmove", e => {
   if(!joystick.active) return;
@@ -63,11 +75,26 @@ canvas.addEventListener("touchmove", e => {
   joystick.vy = (joystick.stickY - joystick.y)/max*player.speed;
 });
 canvas.addEventListener("touchend", e => {
-  joystick.active = false; joystick.vx=0; joystick.vy=0;
-  joystick.stickX=joystick.x; joystick.stickY=joystick.y;
+  joystick.active = false;
+  joystick.vx=0; joystick.vy=0;
+  joystick.stickX = joystick.x; joystick.stickY = joystick.y;
 });
 
-// 스폰 함수
+// 샷건 발사 함수
+function shootAt(tx, ty){
+  const now = Date.now();
+  if(now - lastShot < 1000) return; // 1초 간격
+  const baseAngle = Math.atan2((ty - canvas.height/2), (tx - canvas.width/2));
+  const spread = 0.2;
+  const count = 5;
+  for(let i=0;i<count;i++){
+    const angle = baseAngle - spread/2 + (spread/(count-1))*i;
+    bullets.push({ x: player.x, y: player.y, dx: Math.cos(angle)*10, dy: Math.sin(angle)*10, size:10, trail:[] });
+  }
+  lastShot = now;
+}
+
+// 적 스폰
 function spawnEnemy(){
   const now = Date.now();
   if(now - lastSpawn > spawnInterval){
@@ -84,7 +111,7 @@ function spawnEnemy(){
   }
 }
 
-// 적끼리 충돌 처리
+// 적끼리 충돌
 function resolveEnemyCollisions(){
   for(let i=0;i<enemies.length;i++){
     for(let j=i+1;j<enemies.length;j++){
@@ -105,7 +132,7 @@ function resolveEnemyCollisions(){
   }
 }
 
-// 게임 루프
+// 업데이트
 function update(){
   // 플레이어 이동
   const nextX = player.x + joystick.vx;
@@ -115,32 +142,17 @@ function update(){
   mapOffset.x = canvas.width/2 - player.x;
   mapOffset.y = canvas.height/2 - player.y;
 
-  // 샷건 발사
-  const now = Date.now();
-  if(joystick.active && now - lastShot > 1000){
-    const baseAngle = Math.atan2(joystick.stickY - joystick.y, joystick.stickX - joystick.x);
-    const spread = 0.2;
-    const count = 5;
-    for(let i=0;i<count;i++){
-      const angle = baseAngle - spread/2 + (spread/(count-1))*i;
-      bullets.push({ x: player.x, y: player.y, dx: Math.cos(angle)*10, dy: Math.sin(angle)*10, size:10, trail:[] });
-    }
-    lastShot = now;
-  }
-
-  // 총알 이동 + 잔상
+  // 총알 이동 + 잔상 + 적 피격 체크
   bullets.forEach(b=>{
     b.trail.push({x:b.x, y:b.y});
     if(b.trail.length>5) b.trail.shift();
     b.x += b.dx; b.y += b.dy;
-    
-    // 적 충돌 체크
+
     enemies.forEach(e=>{
       const dist = Math.hypot(b.x - e.x, b.y - e.y);
       if(dist < e.radius + b.size/2){
         e.hp -= 1;
-        e.flash = 5; // 번쩍 지속 프레임
-        // 넉백
+        e.flash = 5;
         const angle = Math.atan2(e.y - player.y, e.x - player.x);
         e.x += Math.cos(angle)*10;
         e.y += Math.sin(angle)*10;
@@ -150,7 +162,7 @@ function update(){
   });
   bullets = bullets.filter(b=>b.x>0 && b.x<map.width && b.y>0 && b.y<map.height && !b.hit);
 
-  // 적 이동 (플레이어 추적)
+  // 적 이동
   enemies.forEach(e=>{
     const dx = player.x - e.x;
     const dy = player.y - e.y;
@@ -164,26 +176,19 @@ function update(){
     if(e.x + e.radius > map.width) e.x = map.width - e.radius;
     if(e.y - e.radius < 0) e.y = e.radius;
     if(e.y + e.radius > map.height) e.y = map.height - e.radius;
-    // flash 감소
     if(e.flash>0) e.flash--;
   });
 
-  // 적끼리 충돌
   resolveEnemyCollisions();
-
-  // 체력 0 적 제거
   enemies = enemies.filter(e=>e.hp>0);
-
-  // 적 지속 스폰
   spawnEnemy();
 }
 
+// 그리기
 function draw(){
-  // 바닥
   ctx.fillStyle="#228B22";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  // 풀
   grass.forEach(g=>{
     ctx.fillStyle=g.color;
     ctx.beginPath();
@@ -191,17 +196,14 @@ function draw(){
     ctx.fill();
   });
 
-  // 맵 테두리
   ctx.strokeStyle="white"; ctx.lineWidth=4;
   ctx.strokeRect(mapOffset.x, mapOffset.y, map.width, map.height);
 
-  // 플레이어
   ctx.fillStyle=player.color;
   ctx.beginPath();
   ctx.arc(player.x+mapOffset.x, player.y+mapOffset.y, player.radius,0,Math.PI*2);
   ctx.fill();
 
-  // 총알 + 잔상
   bullets.forEach(b=>{
     const trailLen = b.trail.length;
     b.trail.forEach((t,i)=>{
@@ -219,15 +221,13 @@ function draw(){
     ctx.fill();
   });
 
-  // 적
   enemies.forEach(e=>{
-    ctx.fillStyle = e.flash>0 ? "yellow" : e.color; // 번쩍 효과
+    ctx.fillStyle = e.flash>0 ? "yellow" : e.color;
     ctx.beginPath();
     ctx.arc(e.x+mapOffset.x, e.y+mapOffset.y, e.radius,0,Math.PI*2);
     ctx.fill();
   });
 
-  // 조이스틱
   if(joystick.active){
     ctx.strokeStyle="#888"; ctx.lineWidth=4;
     ctx.beginPath();
@@ -239,7 +239,6 @@ function draw(){
     ctx.fill();
   }
 
-  // 중앙 상단 버전 표시
   ctx.fillStyle = "white";
   ctx.font = "20px Arial";
   ctx.textAlign = "center";
