@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>탕탕특공대 샷건 v.6</title>
+<title>탕탕특공대 샷건 v.7</title>
 <style>
   body { margin:0; overflow:hidden; background:#222; }
   canvas { display:block; touch-action:none; }
@@ -16,8 +16,7 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// 버전
-const VERSION = "v.6";
+const VERSION = "v.7";
 
 // 맵
 const map = { width: canvas.width*5, height: canvas.height*5 };
@@ -29,7 +28,7 @@ const player = { x: map.width/2, y: map.height/2, radius:20, color:"white", spee
 let bullets = [];
 let lastShot = 0;
 
-// 조이스틱 고정 좌측 하단, 넉넉히
+// 조이스틱
 const joystick = { 
   radius: 80,
   x: 150, 
@@ -91,7 +90,7 @@ canvas.addEventListener("touchend", e => {
   }
 });
 
-// 샷건 발사 함수
+// 샷건 발사
 function shootAt(tx, ty){
   const now = Date.now();
   if(now - lastShot < 1000) return;
@@ -116,13 +115,14 @@ function spawnEnemy(){
       color:"red",
       speed:2 + Math.random()*1.5,
       hp:5,
-      flash:0
+      flash:0,
+      vx:0, vy:0 // 넉백 관성
     });
     lastSpawn = now;
   }
 }
 
-// 적끼리 충돌
+// 적 충돌
 function resolveEnemyCollisions(){
   for(let i=0;i<enemies.length;i++){
     for(let j=i+1;j<enemies.length;j++){
@@ -166,23 +166,28 @@ function update(){
         e.flash = 5;
         const angle = Math.atan2(e.y - player.y, e.x - player.x);
         const knockback = 15;
-        e.x += Math.cos(angle)*knockback;
-        e.y += Math.sin(angle)*knockback;
+        e.vx = Math.cos(angle)*knockback;
+        e.vy = Math.sin(angle)*knockback;
         b.hit = true;
       }
     });
   });
   bullets = bullets.filter(b=>b.x>0 && b.x<map.width && b.y>0 && b.y<map.height && !b.hit);
 
-  // 적 이동
+  // 적 이동 + 넉백 관성
   enemies.forEach(e=>{
     const dx = player.x - e.x;
     const dy = player.y - e.y;
     const dist = Math.hypot(dx, dy);
     if(dist > 0){
-      e.x += (dx/dist)*e.speed;
-      e.y += (dy/dist)*e.speed;
+      e.x += e.vx + (dx/dist)*e.speed;
+      e.y += e.vy + (dy/dist)*e.speed;
     }
+    // 감속
+    const friction = 0.85;
+    e.vx *= friction;
+    e.vy *= friction;
+
     if(e.x - e.radius < 0) e.x = e.radius;
     if(e.x + e.radius > map.width) e.x = map.width - e.radius;
     if(e.y - e.radius < 0) e.y = e.radius;
