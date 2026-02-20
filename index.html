@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>탕탕특공대 샷건 v.4</title>
+<title>탕탕특공대 샷건 v.5</title>
 <style>
   body { margin:0; overflow:hidden; background:#222; }
   canvas { display:block; touch-action:none; }
@@ -17,7 +17,7 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 // 버전
-const VERSION = "v.4";
+const VERSION = "v.5";
 
 // 맵
 const map = { width: canvas.width*5, height: canvas.height*5 };
@@ -29,16 +29,15 @@ const player = { x: map.width/2, y: map.height/2, radius:20, color:"white", spee
 let bullets = [];
 let lastShot = 0;
 
-// 조이스틱 고정 좌측 하단
+// 조이스틱 고정 좌측 하단, 넉넉히
 const joystick = { 
   radius: 80,
-  x: 80 + 10, 
-  y: canvas.height - 80 - 10,
-  stickX: 0, stickY: 0,
-  active:false, vx:0, vy:0
+  x: 150, 
+  y: canvas.height - 150,
+  stickX: 150, stickY: canvas.height - 150,
+  active:false, vx:0, vy:0,
+  touchId:null
 };
-joystick.stickX = joystick.x;
-joystick.stickY = joystick.y;
 
 // 풀 1200개
 const grass = [];
@@ -50,40 +49,54 @@ let mapOffset = {x: canvas.width/2 - player.x, y: canvas.height/2 - player.y};
 
 // 적
 let enemies = [];
-const spawnInterval = 2000; // 2초마다 스폰
+const spawnInterval = 2000; 
 let lastSpawn = 0;
 
 // 터치 이벤트
 canvas.addEventListener("touchstart", e => {
-  const t = e.touches[0];
-  const dx = t.clientX - joystick.x;
-  const dy = t.clientY - joystick.y;
-  if(Math.hypot(dx,dy)<=joystick.radius){ // 조이스틱 터치
-    joystick.active = true;
-  } else { // 나머지 터치 → 샷건 발사
-    shootAt(t.clientX, t.clientY);
+  for(let t of e.changedTouches){
+    const dx = t.clientX - joystick.x;
+    const dy = t.clientY - joystick.y;
+    if(Math.hypot(dx, dy)<=joystick.radius && joystick.touchId===null){ 
+      // 조이스틱 터치
+      joystick.active = true;
+      joystick.touchId = t.identifier;
+      joystick.stickX = t.clientX;
+      joystick.stickY = t.clientY;
+    } else { 
+      // 조준 터치 → 샷건 발사
+      shootAt(t.clientX, t.clientY);
+    }
   }
 });
 canvas.addEventListener("touchmove", e => {
   if(!joystick.active) return;
-  const t = e.touches[0];
-  const dx = t.clientX - joystick.x, dy = t.clientY - joystick.y;
-  const dist = Math.hypot(dx, dy), max = joystick.radius;
-  if(dist>max){ joystick.stickX = joystick.x + dx/dist*max; joystick.stickY = joystick.y + dy/dist*max; }
-  else { joystick.stickX = t.clientX; joystick.stickY = t.clientY; }
-  joystick.vx = (joystick.stickX - joystick.x)/max*player.speed;
-  joystick.vy = (joystick.stickY - joystick.y)/max*player.speed;
+  for(let t of e.changedTouches){
+    if(t.identifier === joystick.touchId){
+      const dx = t.clientX - joystick.x, dy = t.clientY - joystick.y;
+      const dist = Math.hypot(dx, dy), max = joystick.radius;
+      if(dist>max){ joystick.stickX = joystick.x + dx/dist*max; joystick.stickY = joystick.y + dy/dist*max; }
+      else { joystick.stickX = t.clientX; joystick.stickY = t.clientY; }
+      joystick.vx = (joystick.stickX - joystick.x)/max*player.speed;
+      joystick.vy = (joystick.stickY - joystick.y)/max*player.speed;
+    }
+  }
 });
 canvas.addEventListener("touchend", e => {
-  joystick.active = false;
-  joystick.vx=0; joystick.vy=0;
-  joystick.stickX = joystick.x; joystick.stickY = joystick.y;
+  for(let t of e.changedTouches){
+    if(t.identifier === joystick.touchId){
+      joystick.active = false;
+      joystick.vx=0; joystick.vy=0;
+      joystick.stickX = joystick.x; joystick.stickY = joystick.y;
+      joystick.touchId = null;
+    }
+  }
 });
 
 // 샷건 발사 함수
 function shootAt(tx, ty){
   const now = Date.now();
-  if(now - lastShot < 1000) return; // 1초 간격
+  if(now - lastShot < 1000) return;
   const baseAngle = Math.atan2((ty - canvas.height/2), (tx - canvas.width/2));
   const spread = 0.2;
   const count = 5;
@@ -142,7 +155,7 @@ function update(){
   mapOffset.x = canvas.width/2 - player.x;
   mapOffset.y = canvas.height/2 - player.y;
 
-  // 총알 이동 + 잔상 + 적 피격 체크
+  // 총알 이동 + 잔상 + 적 피격
   bullets.forEach(b=>{
     b.trail.push({x:b.x, y:b.y});
     if(b.trail.length>5) b.trail.shift();
@@ -171,7 +184,6 @@ function update(){
       e.x += (dx/dist)*e.speed;
       e.y += (dy/dist)*e.speed;
     }
-    // 경계 제한
     if(e.x - e.radius < 0) e.x = e.radius;
     if(e.x + e.radius > map.width) e.x = map.width - e.radius;
     if(e.y - e.radius < 0) e.y = e.radius;
@@ -228,16 +240,15 @@ function draw(){
     ctx.fill();
   });
 
-  if(joystick.active){
-    ctx.strokeStyle="#888"; ctx.lineWidth=4;
-    ctx.beginPath();
-    ctx.arc(joystick.x, joystick.y, joystick.radius,0,Math.PI*2);
-    ctx.stroke();
-    ctx.fillStyle="#555";
-    ctx.beginPath();
-    ctx.arc(joystick.stickX, joystick.stickY,25,0,Math.PI*2);
-    ctx.fill();
-  }
+  // 조이스틱
+  ctx.strokeStyle="#888"; ctx.lineWidth=4;
+  ctx.beginPath();
+  ctx.arc(joystick.x, joystick.y, joystick.radius,0,Math.PI*2);
+  ctx.stroke();
+  ctx.fillStyle="#555";
+  ctx.beginPath();
+  ctx.arc(joystick.stickX, joystick.stickY,25,0,Math.PI*2);
+  ctx.fill();
 
   ctx.fillStyle = "white";
   ctx.font = "20px Arial";
