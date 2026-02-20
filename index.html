@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>탕탕특공대 샷건 v.10.2</title>
+<title>탕탕특공대 샷건 v.11</title>
 <style>
   body { margin:0; overflow:hidden; background:#222; }
   canvas { display:block; touch-action:none; }
@@ -16,10 +16,10 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-const VERSION = "v.10.2";
+const VERSION = "v.11";
 
 const map = { width: canvas.width*5, height: canvas.height*5 };
-const player = { x: map.width/2, y: map.height/2, radius:20, color:"white", speed:5, xp:0 };
+const player = { x: map.width/2, y: map.height/2, radius:20, color:"white", speed:5, hp:100, maxHp:100, xp:0, level:1 };
 
 let bullets = [];
 let lastShot = 0;
@@ -127,6 +127,15 @@ function resolveEnemyCollisions(){
   }
 }
 
+function checkLevelUp(){
+  let xpNeeded = 10 + (player.level-1)*5;
+  while(player.xp >= xpNeeded){
+    player.xp -= xpNeeded;
+    player.level++;
+    xpNeeded = 10 + (player.level-1)*5;
+  }
+}
+
 function update(){
   const nextX = player.x + joystick.vx;
   const nextY = player.y + joystick.vy;
@@ -182,12 +191,11 @@ function update(){
     if(e.hp <= 0){
       const count = 2 + Math.floor(Math.random()*2);
       for(let j=0;j<count;j++){
-        const green = 180 + Math.floor(Math.random()*20);
         xpList.push({ 
           x:e.x + (Math.random()*20-10),
           y:e.y + (Math.random()*20-10),
           radius:8,
-          color:`rgb(0,${green},255)`,
+          color:`yellow`,
           vx:0,
           vy:0
         });
@@ -213,6 +221,7 @@ function update(){
     if(dist < player.radius){
       player.xp += 1;
       xpList.splice(i,1);
+      checkLevelUp();
     }
 
     xp.vx *= 0.9; xp.vy *= 0.9;
@@ -255,7 +264,6 @@ function draw(){
     ctx.fill();
   });
 
-  // 적 먼저 그리기
   enemies.forEach(e=>{
     ctx.fillStyle = e.flash>0 ? "yellow" : e.color;
     ctx.beginPath();
@@ -263,7 +271,6 @@ function draw(){
     ctx.fill();
   });
 
-  // 경험치 → 적 뒤
   xpList.forEach(xp=>{
     ctx.fillStyle = xp.color;
     ctx.beginPath();
@@ -279,6 +286,25 @@ function draw(){
   ctx.beginPath();
   ctx.arc(joystick.stickX, joystick.stickY,25,0,Math.PI*2);
   ctx.fill();
+
+  // 우측 하단 UI
+  const barWidth = 150, barHeight = 15, padding = 10;
+  const xPos = canvas.width - barWidth - padding;
+  const yHp = canvas.height - padding - barHeight*2 - 5;
+  const yXp = canvas.height - padding - barHeight;
+
+  // 체력
+  ctx.fillStyle="gray";
+  ctx.fillRect(xPos, yHp, barWidth, barHeight);
+  ctx.fillStyle="red";
+  ctx.fillRect(xPos, yHp, barWidth * (player.hp/player.maxHp), barHeight);
+
+  // 레벨/경험치
+  const xpNeeded = 10 + (player.level-1)*5;
+  ctx.fillStyle="gray";
+  ctx.fillRect(xPos, yXp, barWidth, barHeight);
+  ctx.fillStyle="yellow";
+  ctx.fillRect(xPos, yXp, barWidth * (player.xp/xpNeeded), barHeight);
 
   ctx.fillStyle = "white";
   ctx.font = "20px Arial";
