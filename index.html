@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>탕탕특공대 샷건 v.10</title>
+<title>탕탕특공대 샷건 v.10.1</title>
 <style>
   body { margin:0; overflow:hidden; background:#222; }
   canvas { display:block; touch-action:none; }
@@ -16,7 +16,7 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-const VERSION = "v.10";
+const VERSION = "v.10.1";
 
 // 맵
 const map = { width: canvas.width*5, height: canvas.height*5 };
@@ -190,13 +190,11 @@ function update(){
     e.vx *= friction;
     e.vy *= friction;
 
-    // 맵 경계
     if(e.x - e.radius < 0) e.x = e.radius;
     if(e.x + e.radius > map.width) e.x = map.width - e.radius;
     if(e.y - e.radius < 0) e.y = e.radius;
     if(e.y + e.radius > map.height) e.y = map.height - e.radius;
 
-    // 플레이어와 충돌 처리
     const minDist = e.radius + player.radius;
     if(dist < minDist && dist>0){
       const overlap = minDist - dist;
@@ -206,11 +204,11 @@ function update(){
 
     if(e.flash>0) e.flash--;
 
-    // 적 사망 → 경험치 생성 (랜덤 블루 계열)
+    // 적 사망 → 경험치 생성 (밝은 블루 계열)
     if(e.hp <= 0){
       const count = 2 + Math.floor(Math.random()*2);
       for(let j=0;j<count;j++){
-        const blueShade = Math.floor(200 + Math.random()*55); // 200~255
+        const blueShade = 220 + Math.floor(Math.random()*35); // 220~254
         xpList.push({ 
           x:e.x + (Math.random()*20-10),
           y:e.y + (Math.random()*20-10),
@@ -240,7 +238,6 @@ function update(){
     xp.x += xp.vx;
     xp.y += xp.vy;
 
-    // 플레이어 흡수
     if(dist < player.radius){
       player.xp += 1;
       xpList.splice(i,1);
@@ -295,7 +292,6 @@ function draw(){
     ctx.fill();
   });
 
-  // 경험치
   xpList.forEach(xp=>{
     ctx.fillStyle = xp.color;
     ctx.beginPath();
@@ -303,7 +299,6 @@ function draw(){
     ctx.fill();
   });
 
-  // 조이스틱
   ctx.strokeStyle="#888"; ctx.lineWidth=4;
   ctx.beginPath();
   ctx.arc(joystick.x, joystick.y, joystick.radius,0,Math.PI*2);
