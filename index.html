@@ -2,10 +2,10 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>탕탕특공대 v13</title>
+<title>탕탕특공대 v13.1</title>
 <style>
   body { margin:0; overflow:hidden; background:#0a0; }
-  canvas { display:block; }
+  canvas { display:block; touch-action:none; }
 </style>
 </head>
 <body>
@@ -16,13 +16,14 @@ const ctx = canvas.getContext('2d');
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-let v = "v13";
-let keys = {};
+let v = "v13.1";
 let mouse = {x:0, y:0, down:false};
+let touches = [];
+let joystick = {x:100,y:canvas.height-100, radius:60, stickX:100, stickY:canvas.height-100, active:false};
 
 class Weapon {
   constructor(obj){
-    Object.assign(this, obj);
+    Object.assign(this,obj);
     this.reloadTimeLeft = 0;
   }
 }
@@ -33,25 +34,28 @@ const weapons = [
 
 let player = {
   x:canvas.width/2, y:canvas.height/2, size:20, color:"white",
-  weaponIndex:0,
-  weapon:weapons[0],
-  currentAmmo:weapons[0].clip,
-  reloading:false,
-  level:1,
-  exp:0,
-  shotgunUpgradeLevel:0
+  weaponIndex:0, weapon:weapons[0], currentAmmo:weapons[0].clip, reloading:false,
+  level:1, exp:0, shotgunUpgradeLevel:0,
+  vx:0, vy:0
 };
 
 let bullets = [];
 let enemies = [];
 let expObjs = [];
+let grass = [];
+const GRASS_COUNT = 1200;
 
-let lastFire = 0;
-let lastRifleFire = 0;
+// 풀 초기화
+for(let i=0;i<GRASS_COUNT;i++){
+  grass.push({x:Math.random()*canvas.width*5-2.5*canvas.width, y:Math.random()*canvas.height*5-2.5*canvas.height, size:5+Math.random()*5});
+}
 
 // 레벨업 카드
 let levelUp = false;
 let cardOptions = [];
+
+let lastFire = 0;
+let lastRifleFire = 0;
 
 function fireWeapon(targetX, targetY){
   if(player.reloading) return;
@@ -62,7 +66,7 @@ function fireWeapon(targetX, targetY){
     return;
   }
 
-  if(w.type === "spread"){
+  if(w.type==="spread"){
     for(let i=0;i<w.bulletsPerShot;i++){
       let angle = Math.atan2(targetY-player.y, targetX-player.x) + (Math.random()-0.5)*0.05;
       bullets.push({x:player.x, y:player.y, dx:Math.cos(angle)*w.speed, dy:Math.sin(angle)*w.speed, size:5, trail:[], damage:w.damage, knockback:15});
@@ -80,6 +84,65 @@ function fireWeapon(targetX, targetY){
   }
 }
 
+// 샷건 업그레이드
+function upgradeShotgun(){
+  if(player.weapon.name!=="Shotgun") return;
+  if(player.shotgunUpgradeLevel<4){
+    player.weapon.bulletsPerShot +=2;
+    player.weapon.clip = player.weapon.bulletsPerShot;
+    player.shotgunUpgradeLevel++;
+  }
+  player.currentAmmo = player.weapon.clip;
+}
+
+// 조이스틱 처리
+canvas.addEventListener('touchstart',e=>{
+  touches = e.touches;
+  for(let t of touches){
+    let dx = t.clientX - joystick.x;
+    let dy = t.clientY - joystick.y;
+    if(Math.hypot(dx,dy)<joystick.radius){
+      joystick.active = true;
+      joystick.stickX = t.clientX;
+      joystick.stickY = t.clientY;
+    } else if(!levelUp){
+      fireWeapon(t.clientX, t.clientY);
+    }
+  }
+});
+canvas.addEventListener('touchmove',e=>{
+  touches = e.touches;
+  if(joystick.active){
+    let t = touches[0];
+    let dx = t.clientX - joystick.x;
+    let dy = t.clientY - joystick.y;
+    let dist = Math.hypot(dx,dy);
+    let r = joystick.radius;
+    if(dist>r){
+      dx = dx/dist*r;
+      dy = dy/dist*r;
+    }
+    joystick.stickX = joystick.x+dx;
+    joystick.stickY = joystick.y+dy;
+    player.vx = dx/10;
+    player.vy = dy/10;
+  }
+});
+canvas.addEventListener('touchend',e=>{
+  touches = e.touches;
+  if(touches.length===0) { joystick.active=false; player.vx=0; player.vy=0; joystick.stickX=joystick.x; joystick.stickY=joystick.y; }
+});
+
+// 레벨업 카드 선택
+canvas.addEventListener('click', e=>{
+  if(levelUp){
+    if(e.clientY<canvas.height/2) upgradeShotgun();
+    else { player.weaponIndex=1; player.weapon=weapons[1]; player.currentAmmo=player.weapon.clip; }
+    levelUp=false;
+  } else fireWeapon(e.clientX,e.clientY);
+});
+
+// 업데이트
 function update(dt){
   // 무기 재장전
   let w = player.weapon;
@@ -90,6 +153,15 @@ function update(dt){
       player.currentAmmo = w.clip;
     }
   }
+
+  // 플레이어 이동 → 배경 이동
+  // 적, 풀, 경험치 위치 반대로 움직여서 이동 느낌
+  let dx = -player.vx*dt/16;
+  let dy = -player.vy*dt/16;
+  grass.forEach(g=>{g.x+=dx; g.y+=dy;});
+  enemies.forEach(e=>{e.x+=dx; e.y+=dy;});
+  bullets.forEach(b=>{b.x+=dx; b.y+=dy;});
+  expObjs.forEach(ex=>{ex.x+=dx; ex.y+=dy;});
 
   // 총알 이동
   bullets.forEach(b=>{
@@ -107,22 +179,20 @@ function update(dt){
     if(dist<150){
       e.vx = dx*0.05;
       e.vy = dy*0.05;
-    } else {
-      e.vx = 0; e.vy=0;
-    }
-    e.x += e.vx;
-    e.y += e.vy;
+    } else { e.vx=0; e.vy=0; }
+    e.x+=e.vx;
+    e.y+=e.vy;
     if(dist<20){
       player.exp++;
       expObjs.splice(expObjs.indexOf(e),1);
     }
   });
 
-  // 간단 적 스폰 (무제한)
+  // 적 스폰 무제한
   if(Math.random()<0.02){
-    let ex = Math.random()*canvas.width;
-    let ey = Math.random()*canvas.height;
-    enemies.push({x:ex, y:ey, size:15, color:"red", hp:5});
+    let ex = Math.random()*canvas.width*5-2.5*canvas.width;
+    let ey = Math.random()*canvas.height*5-2.5*canvas.height;
+    enemies.push({x:ex,y:ey,size:15,color:"red",hp:5});
   }
 
   // 적 이동
@@ -131,8 +201,8 @@ function update(dt){
     let dy = player.y - e.y;
     let dist = Math.hypot(dx,dy);
     if(dist>0){
-      e.x += dx/dist*1;
-      e.y += dy/dist*1;
+      e.x+=dx/dist*1;
+      e.y+=dy/dist*1;
     }
   });
 
@@ -163,17 +233,24 @@ function update(dt){
 
   // 레벨업 체크
   if(player.exp >= 10*player.level && !levelUp){
-    levelUp = true;
+    levelUp=true;
     player.exp=0;
-    cardOptions = ["Upgrade","NewWeapon"];
+    cardOptions=["Upgrade","NewWeapon"];
   }
 }
 
+// 그리기
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  // 배경
+  // 배경 + 풀
   ctx.fillStyle="#0a0"; ctx.fillRect(0,0,canvas.width,canvas.height);
+  grass.forEach(g=>{
+    ctx.fillStyle="green";
+    ctx.beginPath();
+    ctx.arc(g.x,g.y,g.size,0,Math.PI*2);
+    ctx.fill();
+  });
 
   // 경험치
   expObjs.forEach(e=>{
@@ -195,8 +272,8 @@ function draw(){
   bullets.forEach(b=>{
     for(let i=0;i<b.trail.length;i++){
       let t = b.trail[i];
-      ctx.fillStyle=`rgba(255,255,0,${0.2*(i+1)})`;
-      let s = b.size*(0.5 + i*0.1);
+      ctx.fillStyle=`rgba(255,255,0,${0.2*(5-i)/5})`;
+      let s = b.size*(0.5 + (5-i)*0.1);
       ctx.beginPath();
       ctx.arc(t.x,t.y,s,0,Math.PI*2);
       ctx.fill();
@@ -213,16 +290,24 @@ function draw(){
   ctx.arc(player.x,player.y,player.size,0,Math.PI*2);
   ctx.fill();
 
+  // 조이스틱
+  ctx.globalAlpha=0.5;
+  ctx.fillStyle="gray";
+  ctx.beginPath();
+  ctx.arc(joystick.x,joystick.y,joystick.radius,0,Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle="white";
+  ctx.beginPath();
+  ctx.arc(joystick.stickX,joystick.stickY,joystick.radius/2,0,Math.PI*2);
+  ctx.fill();
+  ctx.globalAlpha=1;
+
   // UI 우측 하단
   let uiX = canvas.width-200, uiY=canvas.height-100;
-  // 체력
   ctx.fillStyle="red"; ctx.fillRect(uiX,uiY,100,10);
-  // 레벨
   ctx.fillStyle="yellow"; ctx.fillRect(uiX,uiY+20,player.exp*10,10);
-  // 레벨 텍스트
   ctx.fillStyle="white"; ctx.font="16px Arial";
   ctx.fillText(`${player.level}lv`,uiX-50,uiY+30);
-  // 무기 + 탄환
   ctx.fillText(`${player.weapon.name} ${player.currentAmmo}`,uiX,uiY-20);
   if(player.reloading) ctx.fillText("RELOADING",uiX,uiY-40);
 
@@ -237,34 +322,17 @@ function draw(){
     ctx.fillStyle="rgba(0,0,0,0.7)";
     ctx.fillRect(canvas.width/2-150,canvas.height/2-100,300,200);
     ctx.fillStyle="white";
+    ctx.textAlign="center";
     ctx.fillText("1) Upgrade",canvas.width/2,canvas.height/2-30);
     ctx.fillText("2) New Weapon",canvas.width/2,canvas.height/2+30);
   }
 }
 
-canvas.addEventListener('click', e=>{
-  if(levelUp){
-    if(e.clientY<canvas.height/2) upgradeShotgun();
-    else player.weaponIndex=1, player.weapon=weapons[1], player.currentAmmo=player.weapon.clip;
-    levelUp=false;
-  } else fireWeapon(e.clientX,e.clientY);
-});
-
-function upgradeShotgun(){
-  if(player.weapon.name !== "Shotgun") return;
-  if(player.shotgunUpgradeLevel<4){
-    player.weapon.bulletsPerShot +=2;
-    player.weapon.clip = player.weapon.bulletsPerShot;
-    player.shotgunUpgradeLevel++;
-  }
-  player.currentAmmo = player.weapon.clip;
-}
-
 let lastTime = Date.now();
 function gameLoop(){
   let now = Date.now();
-  let dt = now - lastTime;
-  lastTime = now;
+  let dt = now-lastTime;
+  lastTime=now;
   update(dt);
   draw();
   requestAnimationFrame(gameLoop);
