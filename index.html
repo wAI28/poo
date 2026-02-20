@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>탕탕특공대 샷건 v.12.1</title>
+<title>탕탕특공대 샷건 v.12.2</title>
 <style>
   body { margin:0; overflow:hidden; background:#222; }
   canvas { display:block; touch-action:none; }
@@ -16,19 +16,14 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-const VERSION = "v.12.1";
+const VERSION = "v.12.2";
 
 const map = { width: canvas.width*5, height: canvas.height*5 };
 const player = { x: map.width/2, y: map.height/2, radius:20, color:"white", speed:5, hp:100, maxHp:100, xp:0, level:1 };
 
 let bullets = [];
-let lastShot = 0;
-let reloading = false;
-const reloadTime = 1000; // 1초 재장전
-let lastReload = 0;
 
-const maxAmmo = 2;  // 더블배럴 탄환 수
-let ammo = maxAmmo;
+const shotgun = { ammo:2, maxAmmo:2, reloadTime:1000, reloading:false, lastReload:0 };
 
 const joystick = { radius: 80, x:150, y:canvas.height-150, stickX:150, stickY:canvas.height-150, active:false, vx:0, vy:0, touchId:null };
 
@@ -85,8 +80,9 @@ canvas.addEventListener("touchend", e => {
 
 function shootAt(tx, ty){
   const now = Date.now();
-  if(reloading || ammo <=0) return;
-  if(now - lastShot < 1000) return;
+  if(shotgun.reloading) return;
+  if(shotgun.ammo <=0) return;
+
   const baseAngle = Math.atan2((ty - canvas.height/2), (tx - canvas.width/2));
   const spread = 0.2;
   const count = 5;
@@ -94,11 +90,10 @@ function shootAt(tx, ty){
     const angle = baseAngle - spread/2 + (spread/(count-1))*i;
     bullets.push({ x: player.x, y: player.y, dx: Math.cos(angle)*10, dy: Math.sin(angle)*10, size:10, trail:[] });
   }
-  lastShot = now;
-  ammo--; // 한 발 사용
-  if(ammo <=0){
-    reloading = true;
-    lastReload = now;
+  shotgun.ammo -=1;
+  if(shotgun.ammo===0){
+    shotgun.reloading = true;
+    shotgun.lastReload = now;
   }
 }
 
@@ -156,10 +151,9 @@ function update(){
   mapOffset.x = canvas.width/2 - player.x;
   mapOffset.y = canvas.height/2 - player.y;
 
-  // 재장전 처리
-  if(reloading && Date.now() - lastReload >= reloadTime){
-    reloading = false;
-    ammo = maxAmmo;
+  if(shotgun.reloading && Date.now() - shotgun.lastReload >= shotgun.reloadTime){
+    shotgun.reloading = false;
+    shotgun.ammo = shotgun.maxAmmo;
   }
 
   bullets.forEach(b=>{
@@ -282,7 +276,6 @@ function draw(){
     ctx.fill();
   });
 
-  // 적 먼저
   enemies.forEach(e=>{
     ctx.fillStyle = e.flash>0 ? "yellow" : e.color;
     ctx.beginPath();
@@ -290,7 +283,6 @@ function draw(){
     ctx.fill();
   });
 
-  // 경험치 → 적 뒤
   xpList.forEach(xp=>{
     ctx.fillStyle = xp.color;
     ctx.beginPath();
@@ -307,38 +299,33 @@ function draw(){
   ctx.arc(joystick.stickX, joystick.stickY,25,0,Math.PI*2);
   ctx.fill();
 
-  // 우측 하단 UI
   const barWidth = 150, barHeight = 15, padding = 10;
   const xPos = canvas.width - barWidth - padding;
   const yHp = canvas.height - padding - barHeight*2 - 5;
   const yXp = canvas.height - padding - barHeight;
 
-  // 체력
   ctx.fillStyle="gray";
   ctx.fillRect(xPos, yHp, barWidth, barHeight);
   ctx.fillStyle="red";
   ctx.fillRect(xPos, yHp, barWidth * (player.hp/player.maxHp), barHeight);
 
-  // 레벨/경험치
   const xpNeeded = 10 + (player.level-1)*5;
   ctx.fillStyle="gray";
   ctx.fillRect(xPos, yXp, barWidth, barHeight);
   ctx.fillStyle="yellow";
   ctx.fillRect(xPos, yXp, barWidth * (player.xp/xpNeeded), barHeight);
 
-  // 레벨 텍스트 → 왼쪽
   ctx.fillStyle="white";
   ctx.font="16px Arial";
   ctx.textAlign="right";
   ctx.fillText(`Lv ${player.level}`, xPos - 10, yXp + barHeight -2);
   ctx.fillText(`${xpNeeded - player.xp} left`, xPos - 10, yXp + barHeight +14);
 
-  // 무기 텍스트 / 재장전 / 탄환 수
   ctx.font="20px Arial";
   ctx.textAlign="left";
   ctx.fillStyle="white";
-  ctx.fillText(`Shotgun ${ammo}`, xPos, yHp - 20);
-  if(reloading){
+  ctx.fillText(`Shotgun ${shotgun.ammo}`, xPos, yHp - 20);
+  if(shotgun.reloading){
     ctx.fillStyle="red";
     ctx.fillText("RELOADING", xPos, yHp - 40);
   }
