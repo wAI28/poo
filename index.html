@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>탕탕특공대 샷건 잔상 최종</title>
+<title>탕탕특공대 샷건 잔상 수정 최종</title>
 <style>
   body { margin:0; overflow:hidden; background:#222; }
   canvas { display:block; touch-action:none; }
@@ -115,13 +115,13 @@ function draw(){
   ctx.arc(player.x+mapOffset.x, player.y+mapOffset.y, player.radius,0,Math.PI*2);
   ctx.fill();
 
-  // 총알 + 잔상 (뒤로 갈수록 작고 투명)
+  // 총알 + 잔상 (총알보다 항상 작은 잔상, 뒤로 갈수록 작고 투명)
   bullets.forEach(b=>{
     const trailLen = b.trail.length;
     b.trail.forEach((t,i)=>{
-      const ratio = (i+1)/trailLen; // i=0 가장 오래된 잔상, i=trailLen-1 최신 잔상
-      const scale = 0.3 + 0.7*ratio; // 오래된 잔상 작게, 최근 잔상 크게
-      const alpha = 0.3 + 0.7*ratio; // 오래된 잔상 투명, 최근 잔상 진하게
+      const ratio = (i+1)/trailLen; // 오래된 잔상 = 작은 값, 최신 잔상 = 큰 값
+      const scale = 0.2 + 0.6*ratio; // 총알보다 작게 시작
+      const alpha = 0.2 + 0.5*ratio; // 오래된 잔상 투명, 최신 잔상 진하게
       ctx.fillStyle = `rgba(255,165,0,${alpha})`;
       ctx.beginPath();
       ctx.arc(t.x+mapOffset.x, t.y+mapOffset.y, (b.size/2)*scale,0,Math.PI*2);
