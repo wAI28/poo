@@ -1,1 +1,160 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>탕탕특공대 샷건 테스트</title>
+<style>
+  body { margin: 0; overflow: hidden; background: #222; }
+  canvas { display: block; touch-action: none; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
+const player = {
+  x: canvas.width/2,
+  y: canvas.height/2,
+  size: 30,
+  color: "yellow",
+  speed: 5,
+};
+
+let bullets = [];
+let lastShot = 0;
+
+const joystick = {
+  x: 100,
+  y: canvas.height - 100,
+  radius: 50,
+  stickX: 100,
+  stickY: canvas.height - 100,
+  active: false
+};
+
+// 맵 장애물
+const obstacles = [];
+for(let i=0;i<50;i++){
+  obstacles.push({
+    x: Math.random()*canvas.width*5 - canvas.width*2, // 넓은 맵
+    y: Math.random()*canvas.height*5 - canvas.height*2,
+    size: 50
+  });
+}
+
+let mapOffset = {x:0, y:0};
+
+// 터치 이벤트
+canvas.addEventListener("touchstart", e => {
+  const t = e.touches[0];
+  if(Math.hypot(t.clientX - joystick.x, t.clientY - joystick.y) < joystick.radius){
+    joystick.active = true;
+  }
+});
+
+canvas.addEventListener("touchmove", e => {
+  if(!joystick.active) return;
+  const t = e.touches[0];
+  const dx = t.clientX - joystick.x;
+  const dy = t.clientY - joystick.y;
+  const dist = Math.hypot(dx, dy);
+  const max = joystick.radius;
+
+  if(dist > max){
+    joystick.stickX = joystick.x + (dx/dist)*max;
+    joystick.stickY = joystick.y + (dy/dist)*max;
+  } else {
+    joystick.stickX = t.clientX;
+    joystick.stickY = t.clientY;
+  }
+
+  joystick.vx = (joystick.stickX - joystick.x)/max * player.speed;
+  joystick.vy = (joystick.stickY - joystick.y)/max * player.speed;
+});
+
+canvas.addEventListener("touchend", e => {
+  joystick.active = false;
+  joystick.stickX = joystick.x;
+  joystick.stickY = joystick.y;
+  joystick.vx = 0;
+  joystick.vy = 0;
+});
+
+// 게임 루프
+function update(){
+  // 배경 이동 (플레이어 고정)
+  mapOffset.x -= joystick.vx;
+  mapOffset.y -= joystick.vy;
+
+  // 총알 생성
+  const now = Date.now();
+  if(joystick.active && now - lastShot > 1000){
+    const angle = Math.atan2(joystick.stickY - joystick.y, joystick.stickX - joystick.x);
+    bullets.push({
+      x: player.x,
+      y: player.y,
+      dx: Math.cos(angle)*10,
+      dy: Math.sin(angle)*10,
+      size: 10
+    });
+    lastShot = now;
+  }
+
+  // 총알 이동
+  bullets.forEach(b => {
+    b.x += b.dx;
+    b.y += b.dy;
+  });
+
+  // 화면 밖 총알 제거
+  bullets = bullets.filter(b => b.x>0 && b.x<canvas.width && b.y>0 && b.y<canvas.height);
+}
+
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // 장애물 그리기
+  obstacles.forEach(o => {
+    ctx.fillStyle = "white";
+    ctx.fillRect(o.x + mapOffset.x, o.y + mapOffset.y, o.size, o.size);
+  });
+
+  // 플레이어 그리기
+  ctx.fillStyle = player.color;
+  ctx.fillRect(player.x - player.size/2, player.y - player.size/2, player.size, player.size);
+
+  // 총알 그리기
+  bullets.forEach(b => {
+    ctx.fillStyle = "orange";
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.size/2, 0, Math.PI*2);
+    ctx.fill();
+  });
+
+  // 조이스틱 그리기
+  ctx.strokeStyle = "#888";
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(joystick.x, joystick.y, joystick.radius,0,Math.PI*2);
+  ctx.stroke();
+
+  ctx.fillStyle = "#555";
+  ctx.beginPath();
+  ctx.arc(joystick.stickX, joystick.stickY, 25,0,Math.PI*2);
+  ctx.fill();
+}
+
+function loop(){
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>
