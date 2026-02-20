@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>탕탕특공대 샷건 v.8</title>
+<title>탕탕특공대 샷건 v.9</title>
 <style>
   body { margin:0; overflow:hidden; background:#222; }
   canvas { display:block; touch-action:none; }
@@ -16,13 +16,13 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-const VERSION = "v.8";
+const VERSION = "v.9";
 
 // 맵
 const map = { width: canvas.width*5, height: canvas.height*5 };
 
 // 플레이어
-const player = { x: map.width/2, y: map.height/2, radius:20, color:"white", speed:5 };
+const player = { x: map.width/2, y: map.height/2, radius:20, color:"white", speed:5, xp:0 };
 
 // 샷건
 let bullets = [];
@@ -50,6 +50,9 @@ let mapOffset = {x: canvas.width/2 - player.x, y: canvas.height/2 - player.y};
 let enemies = [];
 const spawnInterval = 2000; 
 let lastSpawn = 0;
+
+// 경험치
+let xpList = [];
 
 // 터치 이벤트
 canvas.addEventListener("touchstart", e => {
@@ -175,7 +178,7 @@ function update(){
   bullets = bullets.filter(b=>b.x>0 && b.x<map.width && b.y>0 && b.y<map.height && !b.hit);
 
   // 적 이동 + 넉백 관성 + 플레이어 충돌
-  enemies.forEach(e=>{
+  enemies.forEach((e,i)=>{
     const dx = player.x - e.x;
     const dy = player.y - e.y;
     const dist = Math.hypot(dx, dy);
@@ -183,7 +186,6 @@ function update(){
     e.x += e.vx + (dx/dist)*e.speed;
     e.y += e.vy + (dy/dist)*e.speed;
 
-    // 감속
     const friction = 0.85;
     e.vx *= friction;
     e.vy *= friction;
@@ -203,11 +205,50 @@ function update(){
     }
 
     if(e.flash>0) e.flash--;
+
+    // 적 사망 → 경험치 생성
+    if(e.hp <= 0){
+      const count = 2 + Math.floor(Math.random()*2);
+      for(let j=0;j<count;j++){
+        xpList.push({ 
+          x:e.x + (Math.random()*20-10),
+          y:e.y + (Math.random()*20-10),
+          radius:8,
+          color:"blue",
+          vx:0,
+          vy:0
+        });
+      }
+    }
   });
 
   resolveEnemyCollisions();
   enemies = enemies.filter(e=>e.hp>0);
   spawnEnemy();
+
+  // 경험치 업데이트
+  xpList.forEach((xp,i)=>{
+    const dx = player.x - xp.x;
+    const dy = player.y - xp.y;
+    const dist = Math.hypot(dx, dy);
+    if(dist < 200){ // 플레이어 가까이 오면 끌림
+      const pullSpeed = 0.5 + (200 - dist)/50; 
+      xp.vx += (dx/dist)*pullSpeed;
+      xp.vy += (dy/dist)*pullSpeed;
+    }
+    xp.x += xp.vx;
+    xp.y += xp.vy;
+
+    // 플레이어 흡수
+    if(dist < player.radius){
+      player.xp += 1;
+      xpList.splice(i,1);
+    }
+
+    // 감속
+    xp.vx *= 0.9;
+    xp.vy *= 0.9;
+  });
 }
 
 // 그리기
@@ -251,6 +292,14 @@ function draw(){
     ctx.fillStyle = e.flash>0 ? "yellow" : e.color;
     ctx.beginPath();
     ctx.arc(e.x+mapOffset.x, e.y+mapOffset.y, e.radius,0,Math.PI*2);
+    ctx.fill();
+  });
+
+  // 경험치
+  xpList.forEach(xp=>{
+    ctx.fillStyle = xp.color;
+    ctx.beginPath();
+    ctx.arc(xp.x+mapOffset.x, xp.y+mapOffset.y, xp.radius,0,Math.PI*2);
     ctx.fill();
   });
 
