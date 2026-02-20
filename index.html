@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>탕탕특공대 샷건 잔상 개선</title>
+<title>탕탕특공대 샷건 잔상 개선2</title>
 <style>
   body { margin: 0; overflow: hidden; background: #222; }
   canvas { display: block; touch-action: none; }
@@ -73,7 +73,8 @@ function update(){
   const now = Date.now();
   if(joystick.active && now - lastShot > 1000){
     const baseAngle = Math.atan2(joystick.stickY - joystick.y, joystick.stickX - joystick.x);
-    const spread = 0.2; const count = 5;
+    const spread = 0.2;
+    const count = 5;
     for(let i=0;i<count;i++){
       const angle = baseAngle - spread/2 + (spread/(count-1))*i;
       bullets.push({ x: player.x, y: player.y, dx: Math.cos(angle)*10, dy: Math.sin(angle)*10, size:10, trail:[] });
@@ -114,16 +115,17 @@ function draw(){
   ctx.arc(player.x+mapOffset.x, player.y+mapOffset.y, player.radius,0,Math.PI*2);
   ctx.fill();
 
-  // 총알 + 잔상 (투명도+크기 비례)
+  // 총알 + 잔상 (첫 잔상부터 크기, 투명도 점점 줄어듬)
   bullets.forEach(b=>{
     const trailLen = b.trail.length;
     b.trail.forEach((t,i)=>{
-      const ratio = (i+1)/trailLen;
-      ctx.fillStyle = `rgba(255,165,0,${ratio})`;
+      const ratio = (trailLen-i)/trailLen; // 첫 잔상부터 작고 투명
+      ctx.fillStyle = `rgba(255,165,0,${ratio*0.7})`; // 투명도 최대 0.7
       ctx.beginPath();
       ctx.arc(t.x+mapOffset.x, t.y+mapOffset.y, (b.size/2)*ratio,0,Math.PI*2);
       ctx.fill();
     });
+    // 총알 자체
     ctx.fillStyle="orange";
     ctx.beginPath();
     ctx.arc(b.x+mapOffset.x, b.y+mapOffset.y, b.size/2,0,Math.PI*2);
