@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>탕탕특공대 샷건 v.11.1</title>
+<title>탕탕특공대 샷건 v.12</title>
 <style>
   body { margin:0; overflow:hidden; background:#222; }
   canvas { display:block; touch-action:none; }
@@ -16,13 +16,16 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-const VERSION = "v.11.1";
+const VERSION = "v.12";
 
 const map = { width: canvas.width*5, height: canvas.height*5 };
 const player = { x: map.width/2, y: map.height/2, radius:20, color:"white", speed:5, hp:100, maxHp:100, xp:0, level:1 };
 
 let bullets = [];
 let lastShot = 0;
+let reloading = false;
+let reloadTime = 2000; // 2초 재장전
+let lastReload = 0;
 
 const joystick = { radius: 80, x:150, y:canvas.height-150, stickX:150, stickY:canvas.height-150, active:false, vx:0, vy:0, touchId:null };
 
@@ -79,6 +82,7 @@ canvas.addEventListener("touchend", e => {
 
 function shootAt(tx, ty){
   const now = Date.now();
+  if(reloading) return;
   if(now - lastShot < 1000) return;
   const baseAngle = Math.atan2((ty - canvas.height/2), (tx - canvas.width/2));
   const spread = 0.2;
@@ -88,6 +92,8 @@ function shootAt(tx, ty){
     bullets.push({ x: player.x, y: player.y, dx: Math.cos(angle)*10, dy: Math.sin(angle)*10, size:10, trail:[] });
   }
   lastShot = now;
+  reloading = true;
+  lastReload = now;
 }
 
 function spawnEnemy(){
@@ -143,6 +149,9 @@ function update(){
   if(nextY - player.radius >= 0 && nextY + player.radius <= map.height) player.y = nextY;
   mapOffset.x = canvas.width/2 - player.x;
   mapOffset.y = canvas.height/2 - player.y;
+
+  // 총 재장전 처리
+  if(reloading && Date.now() - lastReload >= reloadTime) reloading = false;
 
   bullets.forEach(b=>{
     b.trail.push({x:b.x, y:b.y});
@@ -308,12 +317,22 @@ function draw(){
   ctx.fillStyle="yellow";
   ctx.fillRect(xPos, yXp, barWidth * (player.xp/xpNeeded), barHeight);
 
-  // 레벨 텍스트
+  // 레벨 텍스트 → 왼쪽
   ctx.fillStyle="white";
   ctx.font="16px Arial";
+  ctx.textAlign="right";
+  ctx.fillText(`Lv ${player.level}`, xPos - 10, yXp + barHeight -2);
+  ctx.fillText(`${xpNeeded - player.xp} left`, xPos - 10, yXp + barHeight +14);
+
+  // 무기 텍스트 / 재장전
+  ctx.font="20px Arial";
   ctx.textAlign="left";
-  ctx.fillText(`Lv ${player.level}`, xPos, yXp - 2);
-  ctx.fillText(`${xpNeeded - player.xp} left`, xPos + 60, yXp - 2);
+  ctx.fillStyle="white";
+  ctx.fillText("Shotgun", xPos, yHp - 20);
+  if(reloading){
+    ctx.fillStyle="red";
+    ctx.fillText("RELOADING", xPos, yHp - 40);
+  }
 
   ctx.fillStyle = "white";
   ctx.font = "20px Arial";
