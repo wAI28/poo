@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>탕탕특공대 샷건 v.12.6</title>
+<title>탕탕특공대 샷건 v.12.4</title>
 <style>
   body { margin:0; overflow:hidden; background:#222; }
   canvas { display:block; touch-action:none; }
@@ -16,17 +16,14 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-const VERSION = "v.12.6";
+const VERSION = "v.12.4";
 
 const map = { width: canvas.width*5, height: canvas.height*5 };
 const player = { x: map.width/2, y: map.height/2, radius:20, color:"white", speed:5, hp:100, maxHp:100, xp:0, level:1 };
 
 let bullets = [];
-let lastShot = 0;
-let reloading = false;
-let reloadTime = 1000;
-let lastReload = 0;
-let ammo = 2;
+
+const shotgun = { ammo:2, maxAmmo:2, reloadTime:1000, reloading:false, lastReload:0, pellets:5 };
 
 const joystick = { radius: 80, x:150, y:canvas.height-150, stickX:150, stickY:canvas.height-150, active:false, vx:0, vy:0, touchId:null };
 
@@ -38,25 +35,39 @@ for(let i=0;i<1200;i++){
 let mapOffset = {x: canvas.width/2 - player.x, y: canvas.height/2 - player.y};
 
 let enemies = [];
-const spawnInterval = 1000; // 스폰율 ↑
+const spawnInterval = 2000; 
 let lastSpawn = 0;
 
 let xpList = [];
+
+let levelUpActive = false;
+let levelUpCards = [];
 
 canvas.addEventListener("touchstart", e => {
   for(let t of e.changedTouches){
     const dx = t.clientX - joystick.x;
     const dy = t.clientY - joystick.y;
-    if(Math.hypot(dx, dy)<=joystick.radius && joystick.touchId===null){ 
+    if(joystick.active===false && Math.hypot(dx, dy)<=joystick.radius && joystick.touchId===null){ 
       joystick.active = true;
       joystick.touchId = t.identifier;
       joystick.stickX = t.clientX;
       joystick.stickY = t.clientY;
+    } else if(levelUpActive){ 
+      for(let i=0;i<levelUpCards.length;i++){
+        const c = levelUpCards[i];
+        if(t.clientX>=c.x-c.width/2 && t.clientX<=c.x+c.width/2 &&
+           t.clientY>=c.y-c.height/2 && t.clientY<=c.y+c.height/2){
+          shotgun.pellets += 2;
+          levelUpActive = false;
+          levelUpCards = [];
+        }
+      }
     } else { 
       shootAt(t.clientX, t.clientY);
     }
   }
 });
+
 canvas.addEventListener("touchmove", e => {
   if(!joystick.active) return;
   for(let t of e.changedTouches){
@@ -82,38 +93,37 @@ canvas.addEventListener("touchend", e => {
 });
 
 function shootAt(tx, ty){
+  if(levelUpActive) return;
   const now = Date.now();
-  if(reloading) return;
-  if(ammo <= 0) {
-    reloading = true;
-    lastReload = now;
-    return;
-  }
-  if(now - lastShot < 1000) return;
+  if(shotgun.reloading || shotgun.ammo <=0) return;
+
   const baseAngle = Math.atan2((ty - canvas.height/2), (tx - canvas.width/2));
-  const spread = 0.2;
-  const count = 5;
+  const baseSpread = 0.2;
+  const spread = baseSpread + (shotgun.pellets-5)*0.05; // 펠렛 증가시 퍼짐 확대
+  const count = shotgun.pellets;
   for(let i=0;i<count;i++){
     const angle = baseAngle - spread/2 + (spread/(count-1))*i;
     bullets.push({ x: player.x, y: player.y, dx: Math.cos(angle)*10, dy: Math.sin(angle)*10, size:10, trail:[] });
   }
-  lastShot = now;
-  ammo--;
+  shotgun.ammo -=1;
+  if(shotgun.ammo===0){
+    shotgun.reloading = true;
+    shotgun.lastReload = now;
+  }
 }
 
 function spawnEnemy(){
   const now = Date.now();
   if(now - lastSpawn > spawnInterval){
-    let side = Math.floor(Math.random()*4);
-    let ex, ey;
-    switch(side){
-      case 0: ex = player.x + Math.random()*canvas.width - canvas.width/2; ey = player.y - canvas.height/2 - 50; break;
-      case 1: ex = player.x + canvas.width/2 + 50; ey = player.y + Math.random()*canvas.height - canvas.height/2; break;
-      case 2: ex = player.x + Math.random()*canvas.width - canvas.width/2; ey = player.y + canvas.height/2 + 50; break;
-      case 3: ex = player.x - canvas.width/2 - 50; ey = player.y + Math.random()*canvas.height - canvas.height/2; break;
-    }
     enemies.push({
-      x: ex, y: ey, radius:20, color:"red", speed:2 + Math.random()*1.5, hp:5, flash:0, vx:0, vy:0
+      x: Math.random()*map.width,
+      y: Math.random()*map.height,
+      radius:20,
+      color:"red",
+      speed:2 + Math.random()*1.5,
+      hp:5,
+      flash:0,
+      vx:0, vy:0
     });
     lastSpawn = now;
   }
@@ -144,105 +154,119 @@ function checkLevelUp(){
   while(player.xp >= xpNeeded){
     player.xp -= xpNeeded;
     player.level++;
+    levelUpActive = true;
+    levelUpCards = [{
+      x: canvas.width/2,
+      y:-100,
+      width:120,
+      height:60,
+      radius:15
+    }];
     xpNeeded = 10 + (player.level-1)*5;
   }
 }
 
 function update(){
-  const nextX = player.x + joystick.vx;
-  const nextY = player.y + joystick.vy;
-  if(nextX - player.radius >= 0 && nextX + player.radius <= map.width) player.x = nextX;
-  if(nextY - player.radius >= 0 && nextY + player.radius <= map.height) player.y = nextY;
-  mapOffset.x = canvas.width/2 - player.x;
-  mapOffset.y = canvas.height/2 - player.y;
+  if(levelUpActive){
+    levelUpCards.forEach(c=>{
+      if(c.y<canvas.height/2) c.y +=15; // 내려오는 속도 증가
+    });
+  } else {
+    const nextX = player.x + joystick.vx;
+    const nextY = player.y + joystick.vy;
+    if(nextX - player.radius >= 0 && nextX + player.radius <= map.width) player.x = nextX;
+    if(nextY - player.radius >= 0 && nextY + player.radius <= map.height) player.y = nextY;
+    mapOffset.x = canvas.width/2 - player.x;
+    mapOffset.y = canvas.height/2 - player.y;
 
-  if(reloading && Date.now() - lastReload >= reloadTime){
-    reloading = false;
-    ammo = 2;
-  }
+    if(shotgun.reloading && Date.now() - shotgun.lastReload >= shotgun.reloadTime){
+      shotgun.reloading = false;
+      shotgun.ammo = shotgun.maxAmmo;
+    }
 
-  bullets.forEach(b=>{
-    b.trail.push({x:b.x, y:b.y});
-    if(b.trail.length>5) b.trail.shift();
-    b.x += b.dx; b.y += b.dy;
+    bullets.forEach(b=>{
+      b.trail.push({x:b.x, y:b.y});
+      if(b.trail.length>5) b.trail.shift();
+      b.x += b.dx; b.y += b.dy;
 
-    enemies.forEach(e=>{
-      const dist = Math.hypot(b.x - e.x, b.y - e.y);
-      if(dist < e.radius + b.size/2){
-        e.hp -= 1;
-        e.flash = 5;
-        const angle = Math.atan2(e.y - player.y, e.x - player.x);
-        const knockback = 15;
-        e.vx = Math.cos(angle)*knockback;
-        e.vy = Math.sin(angle)*knockback;
-        b.hit = true;
+      enemies.forEach(e=>{
+        const dist = Math.hypot(b.x - e.x, b.y - e.y);
+        if(dist < e.radius + b.size/2){
+          e.hp -= 1;
+          e.flash = 5;
+          const angle = Math.atan2(e.y - player.y, e.x - player.x);
+          const knockback = 15;
+          e.vx = Math.cos(angle)*knockback;
+          e.vy = Math.sin(angle)*knockback;
+          b.hit = true;
+        }
+      });
+    });
+    bullets = bullets.filter(b=>b.x>0 && b.x<map.width && b.y>0 && b.y<map.height && !b.hit);
+
+    enemies.forEach((e,i)=>{
+      const dx = player.x - e.x;
+      const dy = player.y - e.y;
+      const dist = Math.hypot(dx, dy);
+      
+      e.x += e.vx + (dx/dist)*e.speed;
+      e.y += e.vy + (dy/dist)*e.speed;
+      const friction = 0.85;
+      e.vx *= friction; e.vy *= friction;
+
+      if(e.x - e.radius < 0) e.x = e.radius;
+      if(e.x + e.radius > map.width) e.x = map.width - e.radius;
+      if(e.y - e.radius < 0) e.y = e.radius;
+      if(e.y + e.radius > map.height) e.y = map.height - e.radius;
+
+      const minDist = e.radius + player.radius;
+      if(dist < minDist && dist>0){
+        const overlap = minDist - dist;
+        e.x -= (dx/dist) * overlap;
+        e.y -= (dy/dist) * overlap;
+      }
+
+      if(e.flash>0) e.flash--;
+
+      if(e.hp <= 0){
+        const count = 2 + Math.floor(Math.random()*2);
+        for(let j=0;j<count;j++){
+          xpList.push({ 
+            x:e.x + (Math.random()*20-10),
+            y:e.y + (Math.random()*20-10),
+            radius:8,
+            color:`yellow`,
+            vx:0,
+            vy:0
+          });
+        }
       }
     });
-  });
-  bullets = bullets.filter(b=>b.x>0 && b.x<map.width && b.y>0 && b.y<map.height && !b.hit);
 
-  enemies.forEach((e,i)=>{
-    const dx = player.x - e.x;
-    const dy = player.y - e.y;
-    const dist = Math.hypot(dx, dy);
-    
-    e.x += e.vx + (dx/dist)*e.speed;
-    e.y += e.vy + (dy/dist)*e.speed;
-    const friction = 0.85;
-    e.vx *= friction; e.vy *= friction;
+    resolveEnemyCollisions();
+    enemies = enemies.filter(e=>e.hp>0);
+    spawnEnemy();
 
-    if(e.x - e.radius < 0) e.x = e.radius;
-    if(e.x + e.radius > map.width) e.x = map.width - e.radius;
-    if(e.y - e.radius < 0) e.y = e.radius;
-    if(e.y + e.radius > map.height) e.y = map.height - e.radius;
-
-    const minDist = e.radius + player.radius;
-    if(dist < minDist && dist>0){
-      const overlap = minDist - dist;
-      e.x -= (dx/dist) * overlap;
-      e.y -= (dy/dist) * overlap;
-    }
-
-    if(e.flash>0) e.flash--;
-
-    if(e.hp <= 0){
-      const count = 2 + Math.floor(Math.random()*2);
-      for(let j=0;j<count;j++){
-        xpList.push({ 
-          x:e.x + (Math.random()*20-10),
-          y:e.y + (Math.random()*20-10),
-          radius:8,
-          color:`yellow`,
-          vx:0,
-          vy:0
-        });
+    xpList.forEach((xp,i)=>{
+      const dx = player.x - xp.x;
+      const dy = player.y - xp.y;
+      const dist = Math.hypot(dx, dy);
+      if(dist < 200){
+        const pullSpeed = 0.5 + (200 - dist)/50; 
+        xp.vx += (dx/dist)*pullSpeed;
+        xp.vy += (dy/dist)*pullSpeed;
       }
-    }
-  });
+      xp.x += xp.vx; xp.y += xp.vy;
 
-  resolveEnemyCollisions();
-  enemies = enemies.filter(e=>e.hp>0);
-  spawnEnemy();
+      if(dist < player.radius){
+        player.xp += 1;
+        xpList.splice(i,1);
+        checkLevelUp();
+      }
 
-  xpList.forEach((xp,i)=>{
-    const dx = player.x - xp.x;
-    const dy = player.y - xp.y;
-    const dist = Math.hypot(dx, dy);
-    if(dist < 200){
-      const pullSpeed = 0.5 + (200 - dist)/50; 
-      xp.vx += (dx/dist)*pullSpeed;
-      xp.vy += (dy/dist)*pullSpeed;
-    }
-    xp.x += xp.vx; xp.y += xp.vy;
-
-    if(dist < player.radius){
-      player.xp += 1;
-      xpList.splice(i,1);
-      checkLevelUp();
-    }
-
-    xp.vx *= 0.9; xp.vy *= 0.9;
-  });
+      xp.vx *= 0.9; xp.vy *= 0.9;
+    });
+  }
 }
 
 function draw(){
@@ -329,10 +353,33 @@ function draw(){
   ctx.font="20px Arial";
   ctx.textAlign="left";
   ctx.fillStyle="white";
-  ctx.fillText(`Shotgun ${ammo}`, xPos, yHp - 20);
-  if(reloading){
+  ctx.fillText(`Shotgun ${shotgun.ammo}`, xPos, yHp - 20);
+  if(shotgun.reloading){
     ctx.fillStyle="red";
     ctx.fillText("RELOADING", xPos, yHp - 40);
+  }
+
+  if(levelUpActive){
+    levelUpCards.forEach(c=>{
+      ctx.fillStyle="blue";
+      const r = c.radius;
+      ctx.beginPath();
+      ctx.moveTo(c.x - c.width/2 + r, c.y - c.height/2);
+      ctx.lineTo(c.x + c.width/2 - r, c.y - c.height/2);
+      ctx.quadraticCurveTo(c.x + c.width/2, c.y - c.height/2, c.x + c.width/2, c.y - c.height/2 + r);
+      ctx.lineTo(c.x + c.width/2, c.y + c.height/2 - r);
+      ctx.quadraticCurveTo(c.x + c.width/2, c.y + c.height/2, c.x + c.width/2 - r, c.y + c.height/2);
+      ctx.lineTo(c.x - c.width/2 + r, c.y + c.height/2);
+      ctx.quadraticCurveTo(c.x - c.width/2, c.y + c.height/2, c.x - c.width/2, c.y + c.height/2 - r);
+      ctx.lineTo(c.x - c.width/2, c.y - c.height/2 + r);
+      ctx.quadraticCurveTo(c.x - c.width/2, c.y - c.height/2, c.x - c.width/2 + r, c.y - c.height/2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle="white";
+      ctx.textAlign="center";
+      ctx.font="16px Arial";
+      ctx.fillText("Shotgun +2", c.x, c.y+5);
+    });
   }
 
   ctx.fillStyle = "white";
