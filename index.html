@@ -27,20 +27,23 @@ const player = {
 let bullets = [];
 let lastShot = 0;
 
+// 조이스틱 정보
 const joystick = {
-  x: 100,
-  y: canvas.height - 100,
+  x: 0,
+  y: 0,
   radius: 50,
-  stickX: 100,
-  stickY: canvas.height - 100,
-  active: false
+  stickX: 0,
+  stickY: 0,
+  active: false,
+  vx:0,
+  vy:0
 };
 
-// 맵 장애물
+// 장애물 늘리기
 const obstacles = [];
-for(let i=0;i<50;i++){
+for(let i=0;i<100;i++){ // 100개로 늘림
   obstacles.push({
-    x: Math.random()*canvas.width*5 - canvas.width*2, // 넓은 맵
+    x: Math.random()*canvas.width*5 - canvas.width*2, 
     y: Math.random()*canvas.height*5 - canvas.height*2,
     size: 50
   });
@@ -48,12 +51,14 @@ for(let i=0;i<50;i++){
 
 let mapOffset = {x:0, y:0};
 
-// 터치 이벤트
+// 터치 이벤트 - 어디서든 조이스틱 활성
 canvas.addEventListener("touchstart", e => {
   const t = e.touches[0];
-  if(Math.hypot(t.clientX - joystick.x, t.clientY - joystick.y) < joystick.radius){
-    joystick.active = true;
-  }
+  joystick.active = true;
+  joystick.x = t.clientX;
+  joystick.y = t.clientY;
+  joystick.stickX = t.clientX;
+  joystick.stickY = t.clientY;
 });
 
 canvas.addEventListener("touchmove", e => {
@@ -78,15 +83,15 @@ canvas.addEventListener("touchmove", e => {
 
 canvas.addEventListener("touchend", e => {
   joystick.active = false;
-  joystick.stickX = joystick.x;
-  joystick.stickY = joystick.y;
   joystick.vx = 0;
   joystick.vy = 0;
+  joystick.stickX = joystick.x;
+  joystick.stickY = joystick.y;
 });
 
 // 게임 루프
 function update(){
-  // 배경 이동 (플레이어 고정)
+  // 배경 이동
   mapOffset.x -= joystick.vx;
   mapOffset.y -= joystick.vy;
 
@@ -110,7 +115,6 @@ function update(){
     b.y += b.dy;
   });
 
-  // 화면 밖 총알 제거
   bullets = bullets.filter(b => b.x>0 && b.x<canvas.width && b.y>0 && b.y<canvas.height);
 }
 
@@ -135,17 +139,19 @@ function draw(){
     ctx.fill();
   });
 
-  // 조이스틱 그리기
-  ctx.strokeStyle = "#888";
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.arc(joystick.x, joystick.y, joystick.radius,0,Math.PI*2);
-  ctx.stroke();
+  // 조이스틱 그리기 (터치 중일 때만)
+  if(joystick.active){
+    ctx.strokeStyle = "#888";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(joystick.x, joystick.y, joystick.radius,0,Math.PI*2);
+    ctx.stroke();
 
-  ctx.fillStyle = "#555";
-  ctx.beginPath();
-  ctx.arc(joystick.stickX, joystick.stickY, 25,0,Math.PI*2);
-  ctx.fill();
+    ctx.fillStyle = "#555";
+    ctx.beginPath();
+    ctx.arc(joystick.stickX, joystick.stickY, 25,0,Math.PI*2);
+    ctx.fill();
+  }
 }
 
 function loop(){
