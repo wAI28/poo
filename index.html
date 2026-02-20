@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>탕탕특공대 샷건 테스트</title>
+<title>탕탕특공대 샷건 경계 테스트</title>
 <style>
   body { margin: 0; overflow: hidden; background: #222; }
   canvas { display: block; touch-action: none; }
@@ -16,11 +16,15 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
+// 맵 크기
+const map = { width: canvas.width*5, height: canvas.height*5 };
+
+// 플레이어
 const player = {
-  x: canvas.width/2,
-  y: canvas.height/2,
-  size: 30,
-  color: "yellow",
+  x: map.width/2,
+  y: map.height/2,
+  radius: 20,
+  color: "white",
   speed: 5,
 };
 
@@ -28,31 +32,23 @@ let bullets = [];
 let lastShot = 0;
 
 // 조이스틱
-const joystick = {
-  x: 0,
-  y: 0,
-  radius: 50,
-  stickX: 0,
-  stickY: 0,
-  active: false,
-  vx:0,
-  vy:0
-};
+const joystick = { x:0, y:0, stickX:0, stickY:0, radius:50, active:false, vx:0, vy:0 };
 
-// 풀 생성 (맵 느낌)
+// 풀 생성
 const grass = [];
-for(let i=0;i<300;i++){ // 잔디 300개
+for(let i=0;i<800;i++){
   grass.push({
-    x: Math.random()*canvas.width*5 - canvas.width*2,
-    y: Math.random()*canvas.height*5 - canvas.height*2,
-    size: 5 + Math.random()*5,
+    x: Math.random()*map.width,
+    y: Math.random()*map.height,
+    size: 3 + Math.random()*4,
     color: Math.random()>0.5 ? "#7cfc00" : "#adff2f"
   });
 }
 
-let mapOffset = {x:0, y:0};
+// 화면 이동
+let mapOffset = {x: canvas.width/2 - player.x, y: canvas.height/2 - player.y};
 
-// 터치 이벤트 - 어디서든 조이스틱
+// 터치 이벤트
 canvas.addEventListener("touchstart", e => {
   const t = e.touches[0];
   joystick.active = true;
@@ -92,53 +88,76 @@ canvas.addEventListener("touchend", e => {
 
 // 게임 루프
 function update(){
-  mapOffset.x -= joystick.vx;
-  mapOffset.y -= joystick.vy;
+  // 플레이어 이동 제한
+  const nextX = player.x + joystick.vx;
+  const nextY = player.y + joystick.vy;
+  if(nextX - player.radius >= 0 && nextX + player.radius <= map.width) player.x = nextX;
+  if(nextY - player.radius >= 0 && nextY + player.radius <= map.height) player.y = nextY;
 
-  // 샷건 총알 생성
+  // 화면 중심 맞추기
+  mapOffset.x = canvas.width/2 - player.x;
+  mapOffset.y = canvas.height/2 - player.y;
+
+  // 샷건 발사
   const now = Date.now();
   if(joystick.active && now - lastShot > 1000){
-    const angle = Math.atan2(joystick.stickY - joystick.y, joystick.stickX - joystick.x);
-    bullets.push({
-      x: player.x,
-      y: player.y,
-      dx: Math.cos(angle)*10,
-      dy: Math.sin(angle)*10,
-      size: 10
-    });
+    const baseAngle = Math.atan2(joystick.stickY - joystick.y, joystick.stickX - joystick.x);
+    const spread = 0.2;
+    const count = 5;
+
+    for(let i=0;i<count;i++){
+      const angle = baseAngle - spread/2 + (spread/(count-1))*i;
+      bullets.push({ x: player.x, y: player.y, dx: Math.cos(angle)*10, dy: Math.sin(angle)*10, size:10, trail:[] });
+    }
     lastShot = now;
   }
 
-  bullets.forEach(b => {
+  // 총알 이동 + 잔상
+  bullets.forEach(b=>{
+    b.trail.push({x:b.x, y:b.y});
+    if(b.trail.length>5) b.trail.shift();
     b.x += b.dx;
     b.y += b.dy;
   });
-
-  bullets = bullets.filter(b => b.x>0 && b.x<canvas.width && b.y>0 && b.y<canvas.height);
+  bullets = bullets.filter(b => b.x>0 && b.x<map.width && b.y>0 && b.y<map.height);
 }
 
 function draw(){
   // 초록색 바닥
-  ctx.fillStyle = "#228B22"; 
+  ctx.fillStyle = "#228B22";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  // 잔디 그리기
-  grass.forEach(g => {
+  // 풀
+  grass.forEach(g=>{
     ctx.fillStyle = g.color;
     ctx.beginPath();
-    ctx.arc(g.x + mapOffset.x, g.y + mapOffset.y, g.size/2, 0, Math.PI*2);
+    ctx.arc(g.x + mapOffset.x, g.y + mapOffset.y, g.size/2,0,Math.PI*2);
     ctx.fill();
   });
 
+  // 맵 테두리
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = 4;
+  ctx.strokeRect(mapOffset.x, mapOffset.y, map.width, map.height);
+
   // 플레이어
   ctx.fillStyle = player.color;
-  ctx.fillRect(player.x - player.size/2, player.y - player.size/2, player.size, player.size);
+  ctx.beginPath();
+  ctx.arc(player.x + mapOffset.x, player.y + mapOffset.y, player.radius, 0, Math.PI*2);
+  ctx.fill();
 
-  // 총알
-  bullets.forEach(b => {
+  // 총알 + 잔상
+  bullets.forEach(b=>{
+    for(let i=0;i<b.trail.length;i++){
+      const t = b.trail[i];
+      ctx.fillStyle = `rgba(255,165,0,${i/b.trail.length})`;
+      ctx.beginPath();
+      ctx.arc(t.x + mapOffset.x, t.y + mapOffset.y, b.size/2,0,Math.PI*2);
+      ctx.fill();
+    }
     ctx.fillStyle = "orange";
     ctx.beginPath();
-    ctx.arc(b.x, b.y, b.size/2, 0, Math.PI*2);
+    ctx.arc(b.x + mapOffset.x, b.y + mapOffset.y, b.size/2,0,Math.PI*2);
     ctx.fill();
   });
 
