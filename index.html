@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>탕탕특공대 샷건 v.11</title>
+<title>탕탕특공대 샷건 v.11.1</title>
 <style>
   body { margin:0; overflow:hidden; background:#222; }
   canvas { display:block; touch-action:none; }
@@ -16,7 +16,7 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-const VERSION = "v.11";
+const VERSION = "v.11.1";
 
 const map = { width: canvas.width*5, height: canvas.height*5 };
 const player = { x: map.width/2, y: map.height/2, radius:20, color:"white", speed:5, hp:100, maxHp:100, xp:0, level:1 };
@@ -264,6 +264,7 @@ function draw(){
     ctx.fill();
   });
 
+  // 적 먼저
   enemies.forEach(e=>{
     ctx.fillStyle = e.flash>0 ? "yellow" : e.color;
     ctx.beginPath();
@@ -271,6 +272,7 @@ function draw(){
     ctx.fill();
   });
 
+  // 경험치 → 적 뒤
   xpList.forEach(xp=>{
     ctx.fillStyle = xp.color;
     ctx.beginPath();
@@ -305,6 +307,13 @@ function draw(){
   ctx.fillRect(xPos, yXp, barWidth, barHeight);
   ctx.fillStyle="yellow";
   ctx.fillRect(xPos, yXp, barWidth * (player.xp/xpNeeded), barHeight);
+
+  // 레벨 텍스트
+  ctx.fillStyle="white";
+  ctx.font="16px Arial";
+  ctx.textAlign="left";
+  ctx.fillText(`Lv ${player.level}`, xPos, yXp - 2);
+  ctx.fillText(`${xpNeeded - player.xp} left`, xPos + 60, yXp - 2);
 
   ctx.fillStyle = "white";
   ctx.font = "20px Arial";
