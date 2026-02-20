@@ -22,6 +22,7 @@ const map = { width: canvas.width*5, height: canvas.height*5 };
 const player = { x: map.width/2, y: map.height/2, radius:20, color:"white", speed:5, hp:100, maxHp:100, xp:0, level:1 };
 
 let bullets = [];
+let lastShot = 0;
 
 const shotgun = { ammo:2, maxAmmo:2, reloadTime:1000, reloading:false, lastReload:0, pellets:5 };
 
@@ -167,38 +168,52 @@ function checkLevelUp(){
 }
 
 function update(){
-  if(levelUpActive){
-    levelUpCards.forEach(c=>{
-      if(c.y<canvas.height/2) c.y +=15;
-    });
-  } else {
-    const nextX = player.x + joystick.vx;
-    const nextY = player.y + joystick.vy;
-    if(nextX - player.radius >= 0 && nextX + player.radius <= map.width) player.x = nextX;
-    if(nextY - player.radius >= 0 && nextY + player.radius <= map.height) player.y = nextY;
-    mapOffset.x = canvas.width/2 - player.x;
-    mapOffset.y = canvas.height/2 - player.y;
+  const nextX = player.x + joystick.vx;
+  const nextY = player.y + joystick.vy;
+  if(nextX - player.radius >= 0 && nextX + player.radius <= map.width) player.x = nextX;
+  if(nextY - player.radius >= 0 && nextY + player.radius <= map.height) player.y = nextY;
+  mapOffset.x = canvas.width/2 - player.x;
+  mapOffset.y = canvas.height/2 - player.y;
 
-    if(shotgun.reloading && Date.now() - shotgun.lastReload >= shotgun.reloadTime){
-      shotgun.reloading = false;
-      shotgun.ammo = shotgun.maxAmmo;
-    }
-
-    bullets.forEach(b=>{
-      b.trail.push({x:b.x, y:b.y});
-      if(b.trail.length>5) b.trail.shift();
-      b.x += b.dx; b.y += b.dy;
-    });
-
-    spawnEnemy();
+  if(shotgun.reloading && Date.now() - shotgun.lastReload >= shotgun.reloadTime){
+    shotgun.reloading = false;
+    shotgun.ammo = shotgun.maxAmmo;
   }
+
+  bullets.forEach(b=>{
+    b.trail.push({x:b.x, y:b.y});
+    if(b.trail.length>5) b.trail.shift();
+    b.x += b.dx; b.y += b.dy;
+  });
+
+  spawnEnemy();
 }
 
 function draw(){
   ctx.fillStyle="#228B22";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
+  grass.forEach(g=>{
+    ctx.fillStyle=g.color;
+    ctx.beginPath();
+    ctx.arc(g.x+mapOffset.x, g.y+mapOffset.y, g.size/2,0,Math.PI*2);
+    ctx.fill();
+  });
+
+  ctx.strokeStyle="white"; ctx.lineWidth=4;
+  ctx.strokeRect(mapOffset.x, mapOffset.y, map.width, map.height);
+
   bullets.forEach(b=>{
+    const trailLen = b.trail.length;
+    b.trail.forEach((t,i)=>{
+      const ratio = (i+1)/trailLen; 
+      const scale = 0.2 + 0.6*ratio; 
+      const alpha = 0.2 + 0.5*ratio;
+      ctx.fillStyle = `rgba(255,165,0,${alpha})`;
+      ctx.beginPath();
+      ctx.arc(t.x+mapOffset.x, t.y+mapOffset.y, (b.size/2)*scale,0,Math.PI*2);
+      ctx.fill();
+    });
     ctx.fillStyle="orange";
     ctx.beginPath();
     ctx.arc(b.x+mapOffset.x, b.y+mapOffset.y, b.size/2,0,Math.PI*2);
@@ -210,6 +225,16 @@ function draw(){
   ctx.arc(player.x+mapOffset.x, player.y+mapOffset.y, player.radius,0,Math.PI*2);
   ctx.fill();
 
+  ctx.strokeStyle="#888"; ctx.lineWidth=4;
+  ctx.beginPath();
+  ctx.arc(joystick.x, joystick.y, joystick.radius,0,Math.PI*2);
+  ctx.stroke();
+  ctx.fillStyle="#555";
+  ctx.beginPath();
+  ctx.arc(joystick.stickX, joystick.stickY,25,0,Math.PI*2);
+  ctx.fill();
+
+  // 우측 하단 UI
   const barWidth = 150, barHeight = 15, padding = 10;
   const xPos = canvas.width - barWidth - padding;
   const yHp = canvas.height - padding - barHeight*2 - 5;
