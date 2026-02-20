@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>탕탕특공대 샷건 v.12.4</title>
+<title>탕탕특공대 샷건 v.12.5</title>
 <style>
   body { margin:0; overflow:hidden; background:#222; }
   canvas { display:block; touch-action:none; }
@@ -16,7 +16,7 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-const VERSION = "v.12.4";
+const VERSION = "v.12.5";
 
 const map = { width: canvas.width*5, height: canvas.height*5 };
 const player = { x: map.width/2, y: map.height/2, radius:20, color:"white", speed:5, hp:100, maxHp:100, xp:0, level:1 };
@@ -99,7 +99,7 @@ function shootAt(tx, ty){
 
   const baseAngle = Math.atan2((ty - canvas.height/2), (tx - canvas.width/2));
   const baseSpread = 0.2;
-  const spread = baseSpread + (shotgun.pellets-5)*0.05; // 펠렛 증가시 퍼짐 확대
+  const spread = baseSpread + (shotgun.pellets-5)*0.05;
   const count = shotgun.pellets;
   for(let i=0;i<count;i++){
     const angle = baseAngle - spread/2 + (spread/(count-1))*i;
@@ -157,10 +157,10 @@ function checkLevelUp(){
     levelUpActive = true;
     levelUpCards = [{
       x: canvas.width/2,
-      y:-100,
-      width:120,
-      height:60,
-      radius:15
+      y:-150,
+      width:180,
+      height:100,
+      radius:20
     }];
     xpNeeded = 10 + (player.level-1)*5;
   }
@@ -169,7 +169,7 @@ function checkLevelUp(){
 function update(){
   if(levelUpActive){
     levelUpCards.forEach(c=>{
-      if(c.y<canvas.height/2) c.y +=15; // 내려오는 속도 증가
+      if(c.y<canvas.height/2) c.y +=15;
     });
   } else {
     const nextX = player.x + joystick.vx;
@@ -188,84 +188,9 @@ function update(){
       b.trail.push({x:b.x, y:b.y});
       if(b.trail.length>5) b.trail.shift();
       b.x += b.dx; b.y += b.dy;
-
-      enemies.forEach(e=>{
-        const dist = Math.hypot(b.x - e.x, b.y - e.y);
-        if(dist < e.radius + b.size/2){
-          e.hp -= 1;
-          e.flash = 5;
-          const angle = Math.atan2(e.y - player.y, e.x - player.x);
-          const knockback = 15;
-          e.vx = Math.cos(angle)*knockback;
-          e.vy = Math.sin(angle)*knockback;
-          b.hit = true;
-        }
-      });
-    });
-    bullets = bullets.filter(b=>b.x>0 && b.x<map.width && b.y>0 && b.y<map.height && !b.hit);
-
-    enemies.forEach((e,i)=>{
-      const dx = player.x - e.x;
-      const dy = player.y - e.y;
-      const dist = Math.hypot(dx, dy);
-      
-      e.x += e.vx + (dx/dist)*e.speed;
-      e.y += e.vy + (dy/dist)*e.speed;
-      const friction = 0.85;
-      e.vx *= friction; e.vy *= friction;
-
-      if(e.x - e.radius < 0) e.x = e.radius;
-      if(e.x + e.radius > map.width) e.x = map.width - e.radius;
-      if(e.y - e.radius < 0) e.y = e.radius;
-      if(e.y + e.radius > map.height) e.y = map.height - e.radius;
-
-      const minDist = e.radius + player.radius;
-      if(dist < minDist && dist>0){
-        const overlap = minDist - dist;
-        e.x -= (dx/dist) * overlap;
-        e.y -= (dy/dist) * overlap;
-      }
-
-      if(e.flash>0) e.flash--;
-
-      if(e.hp <= 0){
-        const count = 2 + Math.floor(Math.random()*2);
-        for(let j=0;j<count;j++){
-          xpList.push({ 
-            x:e.x + (Math.random()*20-10),
-            y:e.y + (Math.random()*20-10),
-            radius:8,
-            color:`yellow`,
-            vx:0,
-            vy:0
-          });
-        }
-      }
     });
 
-    resolveEnemyCollisions();
-    enemies = enemies.filter(e=>e.hp>0);
     spawnEnemy();
-
-    xpList.forEach((xp,i)=>{
-      const dx = player.x - xp.x;
-      const dy = player.y - xp.y;
-      const dist = Math.hypot(dx, dy);
-      if(dist < 200){
-        const pullSpeed = 0.5 + (200 - dist)/50; 
-        xp.vx += (dx/dist)*pullSpeed;
-        xp.vy += (dy/dist)*pullSpeed;
-      }
-      xp.x += xp.vx; xp.y += xp.vy;
-
-      if(dist < player.radius){
-        player.xp += 1;
-        xpList.splice(i,1);
-        checkLevelUp();
-      }
-
-      xp.vx *= 0.9; xp.vy *= 0.9;
-    });
   }
 }
 
@@ -273,59 +198,16 @@ function draw(){
   ctx.fillStyle="#228B22";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
-  grass.forEach(g=>{
-    ctx.fillStyle=g.color;
-    ctx.beginPath();
-    ctx.arc(g.x+mapOffset.x, g.y+mapOffset.y, g.size/2,0,Math.PI*2);
-    ctx.fill();
-  });
-
-  ctx.strokeStyle="white"; ctx.lineWidth=4;
-  ctx.strokeRect(mapOffset.x, mapOffset.y, map.width, map.height);
-
-  ctx.fillStyle=player.color;
-  ctx.beginPath();
-  ctx.arc(player.x+mapOffset.x, player.y+mapOffset.y, player.radius,0,Math.PI*2);
-  ctx.fill();
-
   bullets.forEach(b=>{
-    const trailLen = b.trail.length;
-    b.trail.forEach((t,i)=>{
-      const ratio = (i+1)/trailLen; 
-      const scale = 0.2 + 0.6*ratio; 
-      const alpha = 0.2 + 0.5*ratio;
-      ctx.fillStyle = `rgba(255,165,0,${alpha})`;
-      ctx.beginPath();
-      ctx.arc(t.x+mapOffset.x, t.y+mapOffset.y, (b.size/2)*scale,0,Math.PI*2);
-      ctx.fill();
-    });
     ctx.fillStyle="orange";
     ctx.beginPath();
     ctx.arc(b.x+mapOffset.x, b.y+mapOffset.y, b.size/2,0,Math.PI*2);
     ctx.fill();
   });
 
-  enemies.forEach(e=>{
-    ctx.fillStyle = e.flash>0 ? "yellow" : e.color;
-    ctx.beginPath();
-    ctx.arc(e.x+mapOffset.x, e.y+mapOffset.y, e.radius,0,Math.PI*2);
-    ctx.fill();
-  });
-
-  xpList.forEach(xp=>{
-    ctx.fillStyle = xp.color;
-    ctx.beginPath();
-    ctx.arc(xp.x+mapOffset.x, xp.y+mapOffset.y, xp.radius,0,Math.PI*2);
-    ctx.fill();
-  });
-
-  ctx.strokeStyle="#888"; ctx.lineWidth=4;
+  ctx.fillStyle=player.color;
   ctx.beginPath();
-  ctx.arc(joystick.x, joystick.y, joystick.radius,0,Math.PI*2);
-  ctx.stroke();
-  ctx.fillStyle="#555";
-  ctx.beginPath();
-  ctx.arc(joystick.stickX, joystick.stickY,25,0,Math.PI*2);
+  ctx.arc(player.x+mapOffset.x, player.y+mapOffset.y, player.radius,0,Math.PI*2);
   ctx.fill();
 
   const barWidth = 150, barHeight = 15, padding = 10;
@@ -375,10 +257,11 @@ function draw(){
       ctx.quadraticCurveTo(c.x - c.width/2, c.y - c.height/2, c.x - c.width/2 + r, c.y - c.height/2);
       ctx.closePath();
       ctx.fill();
+
       ctx.fillStyle="white";
       ctx.textAlign="center";
-      ctx.font="16px Arial";
-      ctx.fillText("Shotgun +2", c.x, c.y+5);
+      ctx.font="24px Arial";
+      ctx.fillText("Shotgun +2", c.x, c.y+8);
     });
   }
 
