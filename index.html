@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>탕탕특공대 샷건 경계 테스트</title>
+<title>탕탕특공대 샷건 잔상 개선</title>
 <style>
   body { margin: 0; overflow: hidden; background: #222; }
   canvas { display: block; touch-action: none; }
@@ -20,13 +20,7 @@ canvas.height = window.innerHeight;
 const map = { width: canvas.width*5, height: canvas.height*5 };
 
 // 플레이어
-const player = {
-  x: map.width/2,
-  y: map.height/2,
-  radius: 20,
-  color: "white",
-  speed: 5,
-};
+const player = { x: map.width/2, y: map.height/2, radius:20, color:"white", speed:5 };
 
 let bullets = [];
 let lastShot = 0;
@@ -37,53 +31,31 @@ const joystick = { x:0, y:0, stickX:0, stickY:0, radius:50, active:false, vx:0, 
 // 풀 생성
 const grass = [];
 for(let i=0;i<800;i++){
-  grass.push({
-    x: Math.random()*map.width,
-    y: Math.random()*map.height,
-    size: 3 + Math.random()*4,
-    color: Math.random()>0.5 ? "#7cfc00" : "#adff2f"
-  });
+  grass.push({ x: Math.random()*map.width, y: Math.random()*map.height, size:3 + Math.random()*4, color: Math.random()>0.5 ? "#7cfc00" : "#adff2f" });
 }
 
-// 화면 이동
 let mapOffset = {x: canvas.width/2 - player.x, y: canvas.height/2 - player.y};
 
 // 터치 이벤트
 canvas.addEventListener("touchstart", e => {
   const t = e.touches[0];
   joystick.active = true;
-  joystick.x = t.clientX;
-  joystick.y = t.clientY;
-  joystick.stickX = t.clientX;
-  joystick.stickY = t.clientY;
+  joystick.x = t.clientX; joystick.y = t.clientY;
+  joystick.stickX = t.clientX; joystick.stickY = t.clientY;
 });
-
 canvas.addEventListener("touchmove", e => {
   if(!joystick.active) return;
   const t = e.touches[0];
-  const dx = t.clientX - joystick.x;
-  const dy = t.clientY - joystick.y;
-  const dist = Math.hypot(dx, dy);
-  const max = joystick.radius;
-
-  if(dist > max){
-    joystick.stickX = joystick.x + (dx/dist)*max;
-    joystick.stickY = joystick.y + (dy/dist)*max;
-  } else {
-    joystick.stickX = t.clientX;
-    joystick.stickY = t.clientY;
-  }
-
-  joystick.vx = (joystick.stickX - joystick.x)/max * player.speed;
-  joystick.vy = (joystick.stickY - joystick.y)/max * player.speed;
+  const dx = t.clientX - joystick.x, dy = t.clientY - joystick.y;
+  const dist = Math.hypot(dx, dy), max = joystick.radius;
+  if(dist>max){ joystick.stickX = joystick.x + dx/dist*max; joystick.stickY = joystick.y + dy/dist*max; }
+  else { joystick.stickX = t.clientX; joystick.stickY = t.clientY; }
+  joystick.vx = (joystick.stickX - joystick.x)/max*player.speed;
+  joystick.vy = (joystick.stickY - joystick.y)/max*player.speed;
 });
-
 canvas.addEventListener("touchend", e => {
-  joystick.active = false;
-  joystick.vx = 0;
-  joystick.vy = 0;
-  joystick.stickX = joystick.x;
-  joystick.stickY = joystick.y;
+  joystick.active = false; joystick.vx=0; joystick.vy=0;
+  joystick.stickX=joystick.x; joystick.stickY=joystick.y;
 });
 
 // 게임 루프
@@ -94,7 +66,6 @@ function update(){
   if(nextX - player.radius >= 0 && nextX + player.radius <= map.width) player.x = nextX;
   if(nextY - player.radius >= 0 && nextY + player.radius <= map.height) player.y = nextY;
 
-  // 화면 중심 맞추기
   mapOffset.x = canvas.width/2 - player.x;
   mapOffset.y = canvas.height/2 - player.y;
 
@@ -102,9 +73,7 @@ function update(){
   const now = Date.now();
   if(joystick.active && now - lastShot > 1000){
     const baseAngle = Math.atan2(joystick.stickY - joystick.y, joystick.stickX - joystick.x);
-    const spread = 0.2;
-    const count = 5;
-
+    const spread = 0.2; const count = 5;
     for(let i=0;i<count;i++){
       const angle = baseAngle - spread/2 + (spread/(count-1))*i;
       bullets.push({ x: player.x, y: player.y, dx: Math.cos(angle)*10, dy: Math.sin(angle)*10, size:10, trail:[] });
@@ -116,72 +85,65 @@ function update(){
   bullets.forEach(b=>{
     b.trail.push({x:b.x, y:b.y});
     if(b.trail.length>5) b.trail.shift();
-    b.x += b.dx;
-    b.y += b.dy;
+    b.x += b.dx; b.y += b.dy;
   });
-  bullets = bullets.filter(b => b.x>0 && b.x<map.width && b.y>0 && b.y<map.height);
+
+  bullets = bullets.filter(b=>b.x>0 && b.x<map.width && b.y>0 && b.y<map.height);
 }
 
 function draw(){
   // 초록색 바닥
-  ctx.fillStyle = "#228B22";
+  ctx.fillStyle="#228B22";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
   // 풀
   grass.forEach(g=>{
-    ctx.fillStyle = g.color;
+    ctx.fillStyle=g.color;
     ctx.beginPath();
-    ctx.arc(g.x + mapOffset.x, g.y + mapOffset.y, g.size/2,0,Math.PI*2);
+    ctx.arc(g.x+mapOffset.x, g.y+mapOffset.y, g.size/2,0,Math.PI*2);
     ctx.fill();
   });
 
   // 맵 테두리
-  ctx.strokeStyle = "white";
-  ctx.lineWidth = 4;
+  ctx.strokeStyle="white"; ctx.lineWidth=4;
   ctx.strokeRect(mapOffset.x, mapOffset.y, map.width, map.height);
 
   // 플레이어
-  ctx.fillStyle = player.color;
+  ctx.fillStyle=player.color;
   ctx.beginPath();
-  ctx.arc(player.x + mapOffset.x, player.y + mapOffset.y, player.radius, 0, Math.PI*2);
+  ctx.arc(player.x+mapOffset.x, player.y+mapOffset.y, player.radius,0,Math.PI*2);
   ctx.fill();
 
-  // 총알 + 잔상
+  // 총알 + 잔상 (투명도+크기 비례)
   bullets.forEach(b=>{
-    for(let i=0;i<b.trail.length;i++){
-      const t = b.trail[i];
-      ctx.fillStyle = `rgba(255,165,0,${i/b.trail.length})`;
+    const trailLen = b.trail.length;
+    b.trail.forEach((t,i)=>{
+      const ratio = (i+1)/trailLen;
+      ctx.fillStyle = `rgba(255,165,0,${ratio})`;
       ctx.beginPath();
-      ctx.arc(t.x + mapOffset.x, t.y + mapOffset.y, b.size/2,0,Math.PI*2);
+      ctx.arc(t.x+mapOffset.x, t.y+mapOffset.y, (b.size/2)*ratio,0,Math.PI*2);
       ctx.fill();
-    }
-    ctx.fillStyle = "orange";
+    });
+    ctx.fillStyle="orange";
     ctx.beginPath();
-    ctx.arc(b.x + mapOffset.x, b.y + mapOffset.y, b.size/2,0,Math.PI*2);
+    ctx.arc(b.x+mapOffset.x, b.y+mapOffset.y, b.size/2,0,Math.PI*2);
     ctx.fill();
   });
 
   // 조이스틱
   if(joystick.active){
-    ctx.strokeStyle = "#888";
-    ctx.lineWidth = 4;
+    ctx.strokeStyle="#888"; ctx.lineWidth=4;
     ctx.beginPath();
     ctx.arc(joystick.x, joystick.y, joystick.radius,0,Math.PI*2);
     ctx.stroke();
-
-    ctx.fillStyle = "#555";
+    ctx.fillStyle="#555";
     ctx.beginPath();
-    ctx.arc(joystick.stickX, joystick.stickY, 25,0,Math.PI*2);
+    ctx.arc(joystick.stickX, joystick.stickY,25,0,Math.PI*2);
     ctx.fill();
   }
 }
 
-function loop(){
-  update();
-  draw();
-  requestAnimationFrame(loop);
-}
-
+function loop(){ update(); draw(); requestAnimationFrame(loop); }
 loop();
 </script>
 </body>
