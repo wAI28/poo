@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<title>탕탕특공대 샷건 v.10.1</title>
+<title>탕탕특공대 샷건 v.10.2</title>
 <style>
   body { margin:0; overflow:hidden; background:#222; }
   canvas { display:block; touch-action:none; }
@@ -16,29 +16,16 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-const VERSION = "v.10.1";
+const VERSION = "v.10.2";
 
-// 맵
 const map = { width: canvas.width*5, height: canvas.height*5 };
-
-// 플레이어
 const player = { x: map.width/2, y: map.height/2, radius:20, color:"white", speed:5, xp:0 };
 
-// 샷건
 let bullets = [];
 let lastShot = 0;
 
-// 조이스틱
-const joystick = { 
-  radius: 80,
-  x: 150, 
-  y: canvas.height - 150,
-  stickX: 150, stickY: canvas.height - 150,
-  active:false, vx:0, vy:0,
-  touchId:null
-};
+const joystick = { radius: 80, x:150, y:canvas.height-150, stickX:150, stickY:canvas.height-150, active:false, vx:0, vy:0, touchId:null };
 
-// 풀 1200개
 const grass = [];
 for(let i=0;i<1200;i++){
   grass.push({ x: Math.random()*map.width, y: Math.random()*map.height, size:3 + Math.random()*4, color: Math.random()>0.5 ? "#7cfc00" : "#adff2f" });
@@ -46,15 +33,12 @@ for(let i=0;i<1200;i++){
 
 let mapOffset = {x: canvas.width/2 - player.x, y: canvas.height/2 - player.y};
 
-// 적
 let enemies = [];
 const spawnInterval = 2000; 
 let lastSpawn = 0;
 
-// 경험치
 let xpList = [];
 
-// 터치 이벤트
 canvas.addEventListener("touchstart", e => {
   for(let t of e.changedTouches){
     const dx = t.clientX - joystick.x;
@@ -93,7 +77,6 @@ canvas.addEventListener("touchend", e => {
   }
 });
 
-// 샷건 발사
 function shootAt(tx, ty){
   const now = Date.now();
   if(now - lastShot < 1000) return;
@@ -107,7 +90,6 @@ function shootAt(tx, ty){
   lastShot = now;
 }
 
-// 적 스폰
 function spawnEnemy(){
   const now = Date.now();
   if(now - lastSpawn > spawnInterval){
@@ -125,7 +107,6 @@ function spawnEnemy(){
   }
 }
 
-// 적 충돌
 function resolveEnemyCollisions(){
   for(let i=0;i<enemies.length;i++){
     for(let j=i+1;j<enemies.length;j++){
@@ -146,9 +127,7 @@ function resolveEnemyCollisions(){
   }
 }
 
-// 업데이트
 function update(){
-  // 플레이어 이동
   const nextX = player.x + joystick.vx;
   const nextY = player.y + joystick.vy;
   if(nextX - player.radius >= 0 && nextX + player.radius <= map.width) player.x = nextX;
@@ -156,7 +135,6 @@ function update(){
   mapOffset.x = canvas.width/2 - player.x;
   mapOffset.y = canvas.height/2 - player.y;
 
-  // 총알 이동 + 잔상 + 적 피격
   bullets.forEach(b=>{
     b.trail.push({x:b.x, y:b.y});
     if(b.trail.length>5) b.trail.shift();
@@ -177,7 +155,6 @@ function update(){
   });
   bullets = bullets.filter(b=>b.x>0 && b.x<map.width && b.y>0 && b.y<map.height && !b.hit);
 
-  // 적 이동 + 넉백 관성 + 플레이어 충돌
   enemies.forEach((e,i)=>{
     const dx = player.x - e.x;
     const dy = player.y - e.y;
@@ -185,10 +162,8 @@ function update(){
     
     e.x += e.vx + (dx/dist)*e.speed;
     e.y += e.vy + (dy/dist)*e.speed;
-
     const friction = 0.85;
-    e.vx *= friction;
-    e.vy *= friction;
+    e.vx *= friction; e.vy *= friction;
 
     if(e.x - e.radius < 0) e.x = e.radius;
     if(e.x + e.radius > map.width) e.x = map.width - e.radius;
@@ -204,16 +179,15 @@ function update(){
 
     if(e.flash>0) e.flash--;
 
-    // 적 사망 → 경험치 생성 (밝은 블루 계열)
     if(e.hp <= 0){
       const count = 2 + Math.floor(Math.random()*2);
       for(let j=0;j<count;j++){
-        const blueShade = 220 + Math.floor(Math.random()*35); // 220~254
+        const green = 180 + Math.floor(Math.random()*20);
         xpList.push({ 
           x:e.x + (Math.random()*20-10),
           y:e.y + (Math.random()*20-10),
           radius:8,
-          color:`rgb(0,0,${blueShade})`,
+          color:`rgb(0,${green},255)`,
           vx:0,
           vy:0
         });
@@ -225,7 +199,6 @@ function update(){
   enemies = enemies.filter(e=>e.hp>0);
   spawnEnemy();
 
-  // 경험치 업데이트
   xpList.forEach((xp,i)=>{
     const dx = player.x - xp.x;
     const dy = player.y - xp.y;
@@ -235,20 +208,17 @@ function update(){
       xp.vx += (dx/dist)*pullSpeed;
       xp.vy += (dy/dist)*pullSpeed;
     }
-    xp.x += xp.vx;
-    xp.y += xp.vy;
+    xp.x += xp.vx; xp.y += xp.vy;
 
     if(dist < player.radius){
       player.xp += 1;
       xpList.splice(i,1);
     }
 
-    xp.vx *= 0.9;
-    xp.vy *= 0.9;
+    xp.vx *= 0.9; xp.vy *= 0.9;
   });
 }
 
-// 그리기
 function draw(){
   ctx.fillStyle="#228B22";
   ctx.fillRect(0,0,canvas.width,canvas.height);
@@ -285,6 +255,7 @@ function draw(){
     ctx.fill();
   });
 
+  // 적 먼저 그리기
   enemies.forEach(e=>{
     ctx.fillStyle = e.flash>0 ? "yellow" : e.color;
     ctx.beginPath();
@@ -292,6 +263,7 @@ function draw(){
     ctx.fill();
   });
 
+  // 경험치 → 적 뒤
   xpList.forEach(xp=>{
     ctx.fillStyle = xp.color;
     ctx.beginPath();
